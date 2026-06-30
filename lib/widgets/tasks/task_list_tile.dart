@@ -52,67 +52,75 @@ class TaskListTile extends StatelessWidget {
     final domainColor = context.domainColor(task.domain);
 
     return Material(
-      color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        child: Container(
+        child: Ink(
           decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerLow,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border(
-              left: BorderSide(
-                color: domainColor,
-                width: AppSpacing.taskBorderWidth,
-              ),
-              top: BorderSide(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.1),
-              ),
-              right: BorderSide(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.1),
-              ),
-              bottom: BorderSide(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.1),
-              ),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.1),
             ),
           ),
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      task.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.bodyLarge.copyWith(
-                        color: colorScheme.onSurface,
-                      ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: AppSpacing.taskBorderWidth,
+                  decoration: BoxDecoration(
+                    color: domainColor,
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(AppSpacing.radiusMd),
                     ),
-                    if (_subtitle != null) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        _subtitle!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              StartedToggleButton(
-                started: task.started,
-                domainColor: domainColor,
-                onPressed: onStartedToggle,
-              ),
-            ],
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                task.title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.bodyLarge.copyWith(
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                              if (_subtitle != null) ...[
+                                const SizedBox(height: AppSpacing.xs),
+                                Text(
+                                  _subtitle!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.bodyMedium.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        StartedToggleButton(
+                          started: task.started,
+                          domainColor: domainColor,
+                          onPressed: onStartedToggle,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
