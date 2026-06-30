@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ciaraos/main.dart';
 
 void main() {
-  testWidgets('Ciara OS placeholder home renders', (WidgetTester tester) async {
+  testWidgets('Ciara OS app shell renders', (WidgetTester tester) async {
     await tester.pumpWidget(
       const ProviderScope(
         child: CiaraOsApp(),
@@ -12,6 +12,5 @@ void main() {
     );
 
     expect(find.text('Ciara OS'), findsOneWidget);
-    expect(find.text('Scaffold ready — screens coming soon.'), findsOneWidget);
   });
 }

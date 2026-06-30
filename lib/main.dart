@@ -1,5 +1,7 @@
+import 'package:ciaraos/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 void main() {
   runApp(
@@ -9,41 +11,30 @@ void main() {
   );
 }
 
-/// Root app shell. Theme tokens and navigation land in later milestones.
+final _router = GoRouter(
+  initialLocation: '/',
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => Scaffold(
+        appBar: AppBar(title: const Text('Ciara OS')),
+      ),
+    ),
+  ],
+);
+
+/// Root app shell — router and screens expand in later milestones.
 class CiaraOsApp extends StatelessWidget {
   const CiaraOsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Ciara OS',
-      themeMode: ThemeMode.system,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.indigo,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
-      home: const _PlaceholderHome(),
-    );
-  }
-}
-
-class _PlaceholderHome extends StatelessWidget {
-  const _PlaceholderHome();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Ciara OS')),
-      body: const Center(
-        child: Text('Scaffold ready — screens coming soon.'),
-      ),
+      themeMode: ThemeMode.dark,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      routerConfig: _router,
     );
   }
 }
