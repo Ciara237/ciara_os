@@ -17,9 +17,16 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 class TaskCreateEditScreen extends ConsumerStatefulWidget {
-  const TaskCreateEditScreen({super.key, this.taskId});
+  const TaskCreateEditScreen({
+    super.key,
+    this.taskId,
+    this.initialProjectId,
+    this.initialTitle,
+  });
 
   final String? taskId;
+  final String? initialProjectId;
+  final String? initialTitle;
 
   bool get isEditMode => taskId != null;
 
@@ -41,6 +48,7 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
   bool _isSaving = false;
   bool _titleError = false;
   bool _didPopulate = false;
+  bool _didSyncProjectContext = false;
   bool _started = false;
   int _postponeCount = 0;
   DateTime? _createdAt;
@@ -50,6 +58,15 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
     super.initState();
     _titleController = TextEditingController();
     _notesController = TextEditingController();
+    if (!widget.isEditMode) {
+      if (widget.initialProjectId != null) {
+        _selectedProjectId = int.tryParse(widget.initialProjectId!);
+      }
+      final title = widget.initialTitle?.trim();
+      if (title != null && title.isNotEmpty) {
+        _titleController.text = title;
+      }
+    }
   }
 
   @override
@@ -199,6 +216,24 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final projectsAsync = ref.watch(allProjectsProvider);
+
+    if (!widget.isEditMode && _selectedProjectId != null) {
+      ref.listen(projectByIdProvider(_selectedProjectId!), (previous, next) {
+        next.whenData((project) {
+          if (project == null || _didSyncProjectContext || !mounted) {
+            return;
+          }
+          setState(() {
+            _selectedDomain = project.domain;
+            if (_titleController.text.trim().isEmpty &&
+                project.nextAction != null) {
+              _titleController.text = project.nextAction!;
+            }
+            _didSyncProjectContext = true;
+          });
+        });
+      });
+    }
 
     if (widget.isEditMode) {
       final taskId = int.parse(widget.taskId!);
