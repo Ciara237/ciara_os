@@ -1,38 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Add/Edit Opportunity — stub until full form milestone.
+/// Add/Edit Opportunity — stub until Pipeline detail milestone.
 class OpportunityCreateEditScreen extends StatelessWidget {
-  const OpportunityCreateEditScreen({super.key, this.opportunityId});
-
-  final String? opportunityId;
+  const OpportunityCreateEditScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = opportunityId != null;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdit ? 'Edit Opportunity' : 'New Opportunity'),
+        title: const Text('New Opportunity'),
         actions: [
           TextButton(
-            onPressed: () {
-              if (isEdit) {
-                context.go('/opportunities/$opportunityId');
-              } else {
-                context.go('/opportunities');
-              }
-            },
+            onPressed: () => context.go('/opportunities'),
             child: const Text('Save'),
           ),
         ],
       ),
-      body: Center(
-        child: Text(
-          isEdit
-              ? 'Edit opportunity $opportunityId — coming soon.'
-              : 'Opportunity form — coming soon.',
-        ),
+      body: const Center(
+        child: Text('Opportunity form — coming soon.'),
       ),
     );
   }

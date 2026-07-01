@@ -29,18 +29,6 @@ class OpportunityDocument {
         'required': required,
         'completed': completed,
       };
-
-  OpportunityDocument copyWith({
-    String? name,
-    bool? required,
-    bool? completed,
-  }) {
-    return OpportunityDocument(
-      name: name ?? this.name,
-      required: required ?? this.required,
-      completed: completed ?? this.completed,
-    );
-  }
 }
 
 class Opportunity {
@@ -56,7 +44,6 @@ class Opportunity {
     required this.documentsTotal,
     required this.documentsReady,
     this.link,
-    this.leadQuality,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -72,7 +59,6 @@ class Opportunity {
   final int documentsTotal;
   final int documentsReady;
   final String? link;
-  final int? leadQuality;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -89,7 +75,6 @@ class Opportunity {
       documentsTotal: row.documentsTotal,
       documentsReady: row.documentsReady,
       link: row.link,
-      leadQuality: row.leadQuality,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     );
@@ -131,7 +116,6 @@ class Opportunity {
       documentsTotal: Value(documentsTotal),
       documentsReady: Value(documentsReady),
       link: Value(link),
-      leadQuality: Value(leadQuality),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -149,13 +133,11 @@ class Opportunity {
     int? documentsTotal,
     int? documentsReady,
     String? link,
-    int? leadQuality,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool clearDeadline = false,
     bool clearFitNotes = false,
     bool clearLink = false,
-    bool clearLeadQuality = false,
   }) {
     return Opportunity(
       id: id ?? this.id,
@@ -169,7 +151,6 @@ class Opportunity {
       documentsTotal: documentsTotal ?? this.documentsTotal,
       documentsReady: documentsReady ?? this.documentsReady,
       link: clearLink ? null : (link ?? this.link),
-      leadQuality: clearLeadQuality ? null : (leadQuality ?? this.leadQuality),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
