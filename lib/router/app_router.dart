@@ -74,6 +74,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => TaskCreateEditScreen(
           taskId: null,
           initialProjectId: state.uri.queryParameters['projectId'],
+          initialTitle: state.uri.queryParameters['title'],
         ),
       ),
       GoRoute(

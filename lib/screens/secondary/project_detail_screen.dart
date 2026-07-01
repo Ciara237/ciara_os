@@ -276,15 +276,17 @@ class ProjectDetailHeader extends StatelessWidget {
           ),
           Icon(Icons.terminal, color: colorScheme.primary, size: AppSpacing.lg),
           const SizedBox(width: AppSpacing.sm),
-          Text(
-            'Ciara OS',
-            style: AppTypography.monospace.copyWith(
-              color: colorScheme.onSurface,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            child: Text(
+              'Ciara OS',
+              style: AppTypography.monospace.copyWith(
+                color: colorScheme.onSurface,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Spacer(),
           IconButton(
             onPressed: () => context.push('/projects/$projectId/edit'),
             icon: Icon(Icons.edit, color: colorScheme.onSurfaceVariant),
@@ -318,9 +320,11 @@ class ProjectIdentitySection extends StatelessWidget {
               color: domainColor,
             ),
             const SizedBox(width: AppSpacing.sm),
-            Text(
-              domainLabel(project.domain),
-              style: AppTypography.labelSmall.copyWith(color: domainColor),
+            Flexible(
+              child: Text(
+                domainLabel(project.domain),
+                style: AppTypography.labelSmall.copyWith(color: domainColor),
+              ),
             ),
           ],
         ),
@@ -654,7 +658,11 @@ class _LinkedTaskRow extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: AppSpacing.sm),
-                        _TaskStatusChip(label: _taskStatusLabel(task.status)),
+                        Flexible(
+                          child: _TaskStatusChip(
+                            label: _taskStatusLabel(task.status),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -694,6 +702,8 @@ class _TaskStatusChip extends StatelessWidget {
         style: AppTypography.labelSmall.copyWith(
           color: colorScheme.onSurfaceVariant,
         ),
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
       ),
     );
   }
@@ -803,6 +813,7 @@ class ProjectMetadataSection extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.sm),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'DOMAIN',
@@ -811,9 +822,11 @@ class ProjectMetadataSection extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.md),
-            Text(
-              domainLabel(project.domain),
-              style: AppTypography.labelSmall.copyWith(color: domainColor),
+            Expanded(
+              child: Text(
+                domainLabel(project.domain),
+                style: AppTypography.labelSmall.copyWith(color: domainColor),
+              ),
             ),
           ],
         ),
@@ -836,6 +849,7 @@ class _MetadataRow extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -844,10 +858,12 @@ class _MetadataRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.md),
-        Text(
-          value,
-          style: AppTypography.labelSmall.copyWith(
-            color: colorScheme.onSurface,
+        Expanded(
+          child: Text(
+            value,
+            style: AppTypography.labelSmall.copyWith(
+              color: colorScheme.onSurface,
+            ),
           ),
         ),
       ],
