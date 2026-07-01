@@ -12,7 +12,8 @@ import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_theme.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
-import 'package:ciaraos/utils/focus_duration_utils.dart';
+import 'package:ciaraos/widgets/deep_work/deep_work_section.dart';
+import 'package:ciaraos/widgets/deep_work/end_session_dialog.dart';
 import 'package:ciaraos/utils/opportunity_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,9 +96,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
     final focus = ref.read(focusSessionProvider.notifier);
     if (started) {
-      focus.startForTask(task.id);
+      await focus.startForTask(task.id);
     } else if (ref.read(focusSessionProvider).isTrackingTask(task.id)) {
-      focus.pause();
+      await focus.pause();
     }
 
     setState(() {
@@ -139,7 +140,18 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       return;
     }
 
-    ref.read(focusSessionProvider.notifier).clear();
+    final engine = ref.read(focusSessionProvider.notifier);
+    if (ref.read(focusSessionProvider).isTrackingTask(task.id)) {
+      final quality = await showEndSessionDialog(
+        context,
+        durationSeconds:
+            ref.read(focusSessionProvider).totalElapsedSeconds,
+      );
+      if (quality == null || !mounted) {
+        return;
+      }
+      await engine.endSession(quality);
+    }
 
     setState(() => _isUpdating = true);
     try {
@@ -149,6 +161,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           started: false,
         ),
       );
+      await engine.applyPlanningAccuracyOnComplete(task.id);
       await DailyActivityStats.recordActiveDay();
       ref.read(dailyStatsRevisionProvider.notifier).state++;
     } finally {
@@ -679,10 +692,10 @@ class TaskDetailBodyGrid extends StatelessWidget {
       children: [
         _TaskStatusField(status: task.status),
         const SizedBox(height: AppSpacing.lg),
-        _TimeAllocationField(
-          taskId: task.id,
+        DeepWorkSection(
+          task: task,
           isUpdating: isUpdating,
-          onToggle: onStart,
+          onStartPause: onStart,
         ),
       ],
     );
@@ -867,93 +880,6 @@ class _PulsingStatusDotState extends State<_PulsingStatusDot>
           ),
         );
       },
-    );
-  }
-}
-
-class _TimeAllocationField extends ConsumerWidget {
-  const _TimeAllocationField({
-    required this.taskId,
-    required this.isUpdating,
-    required this.onToggle,
-  });
-
-  final int taskId;
-  final bool isUpdating;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final session = ref.watch(focusSessionProvider);
-    final isTracking = session.isTrackingTask(taskId);
-    final elapsed = isTracking ? session.totalElapsedSeconds : 0;
-    final isRunning = isTracking && session.isRunning;
-
-    final primaryLabel = isTracking
-        ? formatFocusClock(elapsed)
-        : 'Not started';
-    final secondaryLabel = isRunning
-        ? 'Task in progress'
-        : isTracking
-            ? 'Paused · tap to resume'
-            : 'Tap to begin';
-
-    return _LabeledField(
-      label: 'TIME ALLOCATION',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isUpdating ? null : onToggle,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          child: Ink(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainer,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              border: Border.all(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.1),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isRunning ? Icons.timer : Icons.timer_outlined,
-                  color: isRunning
-                      ? colorScheme.primaryFixedDim
-                      : colorScheme.outline,
-                  size: AppSpacing.lg,
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        primaryLabel,
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: colorScheme.onSurface,
-                          fontFeatures: isTracking
-                              ? const [FontFeature.tabularFigures()]
-                              : null,
-                        ),
-                      ),
-                      Text(
-                        secondaryLabel,
-                        style: AppTypography.labelLarge.copyWith(
-                          color: isRunning
-                              ? colorScheme.primaryFixedDim
-                              : colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

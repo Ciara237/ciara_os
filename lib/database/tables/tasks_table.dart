@@ -29,6 +29,21 @@ class Tasks extends Table {
   IntColumn get postponeCount =>
       integer().withDefault(const Constant(0))();
 
+  /// Estimated focus time in minutes (planning).
+  IntColumn get estimatedDurationMinutes => integer().nullable()();
+
+  /// Sum of completed focus session durations.
+  IntColumn get totalFocusedSeconds =>
+      integer().withDefault(const Constant(0))();
+
+  IntColumn get focusSessionCount =>
+      integer().withDefault(const Constant(0))();
+
+  /// 0–100 score after task completion (estimated vs actual focus).
+  RealColumn get planningAccuracy => real().nullable()();
+
+  DateTimeColumn get lastFocusSessionAt => dateTime().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
 
   DateTimeColumn get updatedAt => dateTime()();

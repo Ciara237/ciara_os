@@ -2,6 +2,8 @@
 
 Ciara OS — personal productivity app (local-only v1).
 
+**System documentation:** [docs/SYSTEM.md](docs/SYSTEM.md) — architecture, data model, routing, and every screen.
+
 ## Project structure
 
 ```

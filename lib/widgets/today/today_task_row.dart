@@ -1,6 +1,7 @@
 import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_theme.dart';
+import 'package:ciaraos/utils/deep_work_utils.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
@@ -48,13 +49,26 @@ class TodayTaskRow extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Text(
-                  task.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.bodyLarge.copyWith(
-                    color: colorScheme.onSurface,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      task.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.bodyLarge.copyWith(
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Est: ${formatEstimatedMinutes(task.estimatedDurationMinutes)} · '
+                      'Act: ${formatDurationMinutes(task.totalFocusedSeconds)}',
+                      style: AppTypography.labelSmall.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),

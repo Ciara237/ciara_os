@@ -1,6 +1,6 @@
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/widgets/today/builder_mode_card.dart';
-import 'package:ciaraos/widgets/today/deep_focus_bar.dart';
+import 'package:ciaraos/widgets/deep_work/deep_work_card.dart';
 import 'package:ciaraos/widgets/today/performance_snapshot_card.dart';
 import 'package:flutter/material.dart';
 
@@ -12,7 +12,7 @@ class TodaySidebar extends StatelessWidget {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DeepFocusBar(),
+        DeepWorkCard(),
         SizedBox(height: AppSpacing.lg),
         PerformanceSnapshotCard(),
         SizedBox(height: AppSpacing.lg),

@@ -14,23 +14,18 @@ class TodayTaskListSection extends ConsumerWidget {
   const TodayTaskListSection({super.key});
 
   Future<void> _toggleStarted(WidgetRef ref, Task task) async {
-    final repository = ref.read(taskRepositoryProvider);
     final focus = ref.read(focusSessionProvider.notifier);
     final session = ref.read(focusSessionProvider);
-    final willStart = !task.started;
 
-    if (willStart) {
-      focus.startForTask(task.id);
-    } else if (session.isTrackingTask(task.id)) {
-      focus.pause();
+    if (session.isTrackingTask(task.id) && session.isRunning) {
+      await focus.pause();
+      return;
     }
-
-    final updated = task.copyWith(
-      started: willStart,
-      updatedAt: DateTime.now(),
-    );
-    await repository.update(updated.toCompanion());
-    ref.invalidate(taskByIdProvider(task.id));
+    if (session.isTrackingTask(task.id) && !session.isRunning) {
+      await focus.resume();
+      return;
+    }
+    await focus.startForTask(task.id);
   }
 
   @override

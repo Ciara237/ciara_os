@@ -2,6 +2,7 @@ import 'package:ciaraos/providers/today_providers.dart';
 import 'package:ciaraos/services/daily_activity_stats.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
+import 'package:ciaraos/utils/deep_work_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -24,42 +25,35 @@ class PerformanceSnapshotCard extends ConsumerWidget {
         ),
       ),
       child: snapshotAsync.when(
-        loading: () => _SnapshotBody(
-          completedLabel: '— / —',
-          focusLabel: '—',
-          streakLabel: '—',
-        ),
-        error: (_, _) => _SnapshotBody(
-          completedLabel: '0 / 0',
-          focusLabel: '0h',
-          streakLabel: '0 days',
-        ),
-        data: (snapshot) => _SnapshotBody(
-          completedLabel:
-              '${snapshot.completedToday} / ${snapshot.totalToday}',
-          focusLabel: formatFocusUptime(snapshot.focusSeconds),
-          streakLabel:
-              '${snapshot.dailyStreak} ${snapshot.dailyStreak == 1 ? 'day' : 'days'}',
-        ),
+        loading: () => const _SnapshotGrid.loading(),
+        error: (_, _) => const _SnapshotGrid.empty(),
+        data: (snapshot) => _SnapshotGrid(snapshot: snapshot),
       ),
     );
   }
 }
 
-class _SnapshotBody extends StatelessWidget {
-  const _SnapshotBody({
-    required this.completedLabel,
-    required this.focusLabel,
-    required this.streakLabel,
-  });
+class _SnapshotGrid extends StatelessWidget {
+  const _SnapshotGrid({required this.snapshot}) : loading = false, empty = false;
 
-  final String completedLabel;
-  final String focusLabel;
-  final String streakLabel;
+  const _SnapshotGrid.loading()
+      : snapshot = null,
+        loading = true,
+        empty = false;
+
+  const _SnapshotGrid.empty()
+      : snapshot = null,
+        loading = false,
+        empty = true;
+
+  final TodayPerformanceSnapshot? snapshot;
+  final bool loading;
+  final bool empty;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final s = snapshot;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,22 +66,69 @@ class _SnapshotBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        _SnapshotRow(label: 'Completed today', value: completedLabel),
-        const SizedBox(height: AppSpacing.md),
-        _SnapshotRow(label: 'Focus uptime', value: focusLabel),
-        const SizedBox(height: AppSpacing.md),
-        _SnapshotRow(label: 'Daily Streaks', value: streakLabel),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisSpacing: AppSpacing.md,
+          mainAxisSpacing: AppSpacing.md,
+          childAspectRatio: 1.6,
+          children: [
+            _Tile(
+              icon: Icons.task_alt,
+              label: 'Completed',
+              value: loading
+                  ? '—'
+                  : '${s?.completedToday ?? 0}/${s?.totalToday ?? 0}',
+            ),
+            _Tile(
+              icon: Icons.timer,
+              label: 'Deep work',
+              value: loading
+                  ? '—'
+                  : formatFocusUptime(s?.focusSeconds ?? 0),
+            ),
+            _Tile(
+              icon: Icons.bolt,
+              label: 'Sessions',
+              value: loading ? '—' : '${s?.sessionCountToday ?? 0}',
+            ),
+            _Tile(
+              icon: Icons.psychology_outlined,
+              label: 'Focus quality',
+              value: loading
+                  ? '—'
+                  : formatAverageQuality(s?.averageQualityScore),
+            ),
+            _Tile(
+              icon: Icons.track_changes,
+              label: 'Accuracy',
+              value: loading
+                  ? '—'
+                  : formatPlanningAccuracy(s?.planningAccuracy),
+            ),
+            _Tile(
+              icon: Icons.local_fire_department,
+              label: 'Streak',
+              value: loading
+                  ? '—'
+                  : '${s?.dailyStreak ?? 0}d',
+            ),
+          ],
+        ),
       ],
     );
   }
 }
 
-class _SnapshotRow extends StatelessWidget {
-  const _SnapshotRow({
+class _Tile extends StatelessWidget {
+  const _Tile({
+    required this.icon,
     required this.label,
     required this.value,
   });
 
+  final IconData icon;
   final String label;
   final String value;
 
@@ -95,23 +136,42 @@ class _SnapshotRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: AppTypography.bodyMedium.copyWith(
-              color: colorScheme.onSurfaceVariant,
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: AppSpacing.md, color: colorScheme.primary),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  style: AppTypography.labelSmall.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            value,
+            style: AppTypography.headingMedium.copyWith(
+              color: colorScheme.onSurface,
             ),
           ),
-        ),
-        Text(
-          value,
-          style: AppTypography.labelLarge.copyWith(
-            color: colorScheme.onSurface,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

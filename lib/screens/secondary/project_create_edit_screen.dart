@@ -162,6 +162,8 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
                   today: false,
                   projectId: projectId,
                   postponeCount: 0,
+                  totalFocusedSeconds: 0,
+                  focusSessionCount: 0,
                   createdAt: now,
                   updatedAt: now,
                 ).toCompanion(forInsert: true),

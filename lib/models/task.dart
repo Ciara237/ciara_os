@@ -17,6 +17,11 @@ class Task {
     this.projectId,
     this.notes,
     required this.postponeCount,
+    this.estimatedDurationMinutes,
+    required this.totalFocusedSeconds,
+    required this.focusSessionCount,
+    this.planningAccuracy,
+    this.lastFocusSessionAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -32,6 +37,11 @@ class Task {
   final int? projectId;
   final String? notes;
   final int postponeCount;
+  final int? estimatedDurationMinutes;
+  final int totalFocusedSeconds;
+  final int focusSessionCount;
+  final double? planningAccuracy;
+  final DateTime? lastFocusSessionAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -48,6 +58,11 @@ class Task {
       projectId: row.projectId,
       notes: row.notes,
       postponeCount: row.postponeCount,
+      estimatedDurationMinutes: row.estimatedDurationMinutes,
+      totalFocusedSeconds: row.totalFocusedSeconds,
+      focusSessionCount: row.focusSessionCount,
+      planningAccuracy: row.planningAccuracy,
+      lastFocusSessionAt: row.lastFocusSessionAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     );
@@ -66,6 +81,11 @@ class Task {
       projectId: Value(projectId),
       notes: Value(notes),
       postponeCount: Value(postponeCount),
+      estimatedDurationMinutes: Value(estimatedDurationMinutes),
+      totalFocusedSeconds: Value(totalFocusedSeconds),
+      focusSessionCount: Value(focusSessionCount),
+      planningAccuracy: Value(planningAccuracy),
+      lastFocusSessionAt: Value(lastFocusSessionAt),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -83,11 +103,19 @@ class Task {
     int? projectId,
     String? notes,
     int? postponeCount,
+    int? estimatedDurationMinutes,
+    int? totalFocusedSeconds,
+    int? focusSessionCount,
+    double? planningAccuracy,
+    DateTime? lastFocusSessionAt,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool clearDeadline = false,
     bool clearProjectId = false,
     bool clearNotes = false,
+    bool clearEstimatedDuration = false,
+    bool clearPlanningAccuracy = false,
+    bool clearLastFocusSessionAt = false,
   }) {
     return Task(
       id: id ?? this.id,
@@ -101,6 +129,17 @@ class Task {
       projectId: clearProjectId ? null : (projectId ?? this.projectId),
       notes: clearNotes ? null : (notes ?? this.notes),
       postponeCount: postponeCount ?? this.postponeCount,
+      estimatedDurationMinutes: clearEstimatedDuration
+          ? null
+          : (estimatedDurationMinutes ?? this.estimatedDurationMinutes),
+      totalFocusedSeconds: totalFocusedSeconds ?? this.totalFocusedSeconds,
+      focusSessionCount: focusSessionCount ?? this.focusSessionCount,
+      planningAccuracy: clearPlanningAccuracy
+          ? null
+          : (planningAccuracy ?? this.planningAccuracy),
+      lastFocusSessionAt: clearLastFocusSessionAt
+          ? null
+          : (lastFocusSessionAt ?? this.lastFocusSessionAt),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter/foundation.dart';
 
+import 'tables/focus_sessions_table.dart';
 import 'tables/opportunities_table.dart';
 import 'tables/projects_table.dart';
 import 'tables/tasks_table.dart';
@@ -15,6 +16,7 @@ part 'app_database.g.dart';
     Projects,
     Opportunities,
     WeeklyReviews,
+    FocusSessions,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -37,7 +39,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -58,6 +60,29 @@ class AppDatabase extends _$AppDatabase {
             await migrator.addColumn(
               projects,
               projects.timeAllocationDays,
+            );
+          }
+          if (from < 5) {
+            await migrator.createTable(focusSessions);
+            await migrator.addColumn(
+              tasks,
+              tasks.estimatedDurationMinutes,
+            );
+            await migrator.addColumn(
+              tasks,
+              tasks.totalFocusedSeconds,
+            );
+            await migrator.addColumn(
+              tasks,
+              tasks.focusSessionCount,
+            );
+            await migrator.addColumn(
+              tasks,
+              tasks.planningAccuracy,
+            );
+            await migrator.addColumn(
+              tasks,
+              tasks.lastFocusSessionAt,
             );
           }
         },

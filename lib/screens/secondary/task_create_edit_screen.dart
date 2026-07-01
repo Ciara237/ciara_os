@@ -38,6 +38,7 @@ class TaskCreateEditScreen extends ConsumerStatefulWidget {
 class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _notesController;
+  late final TextEditingController _estimatedDurationController;
 
   Domain _selectedDomain = Domain.other;
   Priority _selectedPriority = Priority.medium;
@@ -51,6 +52,10 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
   bool _didSyncProjectContext = false;
   bool _started = false;
   int _postponeCount = 0;
+  int _totalFocusedSeconds = 0;
+  int _focusSessionCount = 0;
+  double? _planningAccuracy;
+  DateTime? _lastFocusSessionAt;
   DateTime? _createdAt;
 
   @override
@@ -58,6 +63,7 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
     super.initState();
     _titleController = TextEditingController();
     _notesController = TextEditingController();
+    _estimatedDurationController = TextEditingController();
     if (!widget.isEditMode) {
       if (widget.initialProjectId != null) {
         _selectedProjectId = int.tryParse(widget.initialProjectId!);
@@ -81,6 +87,7 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
   void dispose() {
     _titleController.dispose();
     _notesController.dispose();
+    _estimatedDurationController.dispose();
     super.dispose();
   }
 
@@ -95,7 +102,24 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
     _todayFlag = task.today;
     _started = task.started;
     _postponeCount = task.postponeCount;
+    _totalFocusedSeconds = task.totalFocusedSeconds;
+    _focusSessionCount = task.focusSessionCount;
+    _planningAccuracy = task.planningAccuracy;
+    _lastFocusSessionAt = task.lastFocusSessionAt;
+    _estimatedDurationController.text = task.estimatedDurationMinutes?.toString() ?? '';
     _createdAt = task.createdAt;
+  }
+
+  int? _parsedEstimatedDuration() {
+    final raw = _estimatedDurationController.text.trim();
+    if (raw.isEmpty) {
+      return null;
+    }
+    final value = int.tryParse(raw);
+    if (value == null || value <= 0) {
+      return null;
+    }
+    return value;
   }
 
   Future<void> _pickDeadline() async {
@@ -143,6 +167,11 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
               ? null
               : _notesController.text.trim(),
           postponeCount: _postponeCount,
+          estimatedDurationMinutes: _parsedEstimatedDuration(),
+          totalFocusedSeconds: _totalFocusedSeconds,
+          focusSessionCount: _focusSessionCount,
+          planningAccuracy: _planningAccuracy,
+          lastFocusSessionAt: _lastFocusSessionAt,
           createdAt: _createdAt ?? now,
           updatedAt: now,
         );
@@ -163,6 +192,9 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
               ? null
               : _notesController.text.trim(),
           postponeCount: 0,
+          estimatedDurationMinutes: _parsedEstimatedDuration(),
+          totalFocusedSeconds: 0,
+          focusSessionCount: 0,
           createdAt: now,
           updatedAt: now,
         );
@@ -372,6 +404,44 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
                           setState(() => _selectedStatus = status),
                     ),
                   ],
+                  const SizedBox(height: AppSpacing.lg),
+                  const _FormFieldLabel(text: 'ESTIMATED DURATION (MINUTES)'),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    controller: _estimatedDurationController,
+                    keyboardType: TextInputType.number,
+                    maxLines: 1,
+                    style: AppTypography.bodyLarge.copyWith(
+                      color: colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. 45 — used for session planning',
+                      hintStyle: AppTypography.bodyLarge.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      filled: true,
+                      fillColor: colorScheme.surfaceContainerLowest,
+                      border: OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
+                        borderSide: BorderSide(
+                          color: colorScheme.outlineVariant,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
+                        borderSide: BorderSide(
+                          color: colorScheme.outlineVariant,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
+                        borderSide: BorderSide(color: colorScheme.primary),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                   const _FormFieldLabel(text: 'DEADLINE'),
                   const SizedBox(height: AppSpacing.sm),

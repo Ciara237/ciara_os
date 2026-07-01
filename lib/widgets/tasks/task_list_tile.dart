@@ -48,6 +48,8 @@ class TaskListTile extends StatelessWidget {
       today: false,
       notes: 'Design token integration',
       postponeCount: 0,
+      totalFocusedSeconds: 0,
+      focusSessionCount: 0,
       createdAt: now,
       updatedAt: now,
     );
