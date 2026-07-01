@@ -11,6 +11,7 @@ import 'package:ciaraos/theme/app_theme.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -40,12 +41,14 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
   late final TextEditingController _nextActionController;
   late final TextEditingController _linkController;
   late final TextEditingController _descriptionController;
+  late final TextEditingController _timeAllocationController;
 
   Domain _selectedDomain = Domain.other;
   ProjectStatus _selectedStatus = ProjectStatus.active;
   bool _isSaving = false;
   bool _nameError = false;
   bool _linkError = false;
+  bool _timeAllocationError = false;
   bool _didPopulate = false;
   DateTime? _createdAt;
 
@@ -56,6 +59,7 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
     _nextActionController = TextEditingController();
     _linkController = TextEditingController();
     _descriptionController = TextEditingController();
+    _timeAllocationController = TextEditingController();
   }
 
   @override
@@ -64,6 +68,7 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
     _nextActionController.dispose();
     _linkController.dispose();
     _descriptionController.dispose();
+    _timeAllocationController.dispose();
     super.dispose();
   }
 
@@ -72,6 +77,7 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
     _nextActionController.text = project.nextAction ?? '';
     _linkController.text = project.externalLink ?? '';
     _descriptionController.text = project.description ?? '';
+    _timeAllocationController.text = project.timeAllocationDays.toString();
     _selectedDomain = project.domain;
     _selectedStatus = project.status;
     _createdAt = project.createdAt;
@@ -84,13 +90,18 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
   Future<void> _save() async {
     final name = _nameController.text.trim();
     final link = _linkController.text.trim();
+    final allocationText = _timeAllocationController.text.trim();
+    final allocationDays = int.tryParse(allocationText);
     final hasNameError = name.isEmpty;
     final hasLinkError = link.isNotEmpty && !_isValidUrl(link);
+    final hasTimeAllocationError =
+        allocationDays == null || allocationDays <= 0;
 
-    if (hasNameError || hasLinkError) {
+    if (hasNameError || hasLinkError || hasTimeAllocationError) {
       setState(() {
         _nameError = hasNameError;
         _linkError = hasLinkError;
+        _timeAllocationError = hasTimeAllocationError;
       });
       return;
     }
@@ -98,6 +109,7 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
     setState(() {
       _nameError = false;
       _linkError = false;
+      _timeAllocationError = false;
       _isSaving = true;
     });
 
@@ -116,10 +128,12 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
           nextAction: nextAction.isEmpty ? null : nextAction,
           externalLink: link.isEmpty ? null : link,
           description: description.isEmpty ? null : description,
+          timeAllocationDays: allocationDays,
           createdAt: _createdAt ?? now,
           updatedAt: now,
         );
         await repository.update(project.toCompanion());
+        ref.invalidate(projectByIdProvider(project.id));
       } else {
         final project = Project(
           id: 0,
@@ -129,6 +143,7 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
           nextAction: nextAction.isEmpty ? null : nextAction,
           externalLink: link.isEmpty ? null : link,
           description: description.isEmpty ? null : description,
+          timeAllocationDays: allocationDays,
           createdAt: now,
           updatedAt: now,
         );
@@ -213,17 +228,12 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
     if (widget.isEditMode) {
       final projectId = int.parse(widget.projectId!);
       final projectAsync = ref.watch(projectByIdProvider(projectId));
+      final project = projectAsync.value;
 
-      ref.listen(projectByIdProvider(projectId), (previous, next) {
-        next.whenData((project) {
-          if (project != null && !_didPopulate && mounted) {
-            setState(() {
-              _didPopulate = true;
-              _populateFromProject(project);
-            });
-          }
-        });
-      });
+      if (project != null && !_didPopulate) {
+        _didPopulate = true;
+        _populateFromProject(project);
+      }
 
       if (projectAsync.isLoading && !_didPopulate) {
         return Scaffold(
@@ -310,6 +320,36 @@ class _ProjectCreateEditScreenState extends ConsumerState<ProjectCreateEditScree
                     onSelected: (status) =>
                         setState(() => _selectedStatus = status),
                   ),
+                  const SizedBox(height: AppSpacing.lg),
+                  const _FormFieldLabel(text: 'TIME ALLOCATION (DAYS)'),
+                  const SizedBox(height: AppSpacing.sm),
+                  TextField(
+                    controller: _timeAllocationController,
+                    maxLines: 1,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    style: AppTypography.bodyLarge.copyWith(
+                      color: colorScheme.onSurface,
+                    ),
+                    decoration: _fieldDecoration(
+                      context,
+                      hint: 'e.g. 14, 30, 90',
+                    ),
+                    onChanged: (_) {
+                      if (_timeAllocationError) {
+                        setState(() => _timeAllocationError = false);
+                      }
+                    },
+                  ),
+                  if (_timeAllocationError) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Enter a positive number of days',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: colorScheme.error,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.lg),
                   const _FormFieldLabel(text: 'NEXT ACTION'),
                   const SizedBox(height: AppSpacing.sm),

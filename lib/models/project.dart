@@ -12,6 +12,7 @@ class Project {
     this.nextAction,
     this.externalLink,
     this.description,
+    required this.timeAllocationDays,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -23,6 +24,7 @@ class Project {
   final String? nextAction;
   final String? externalLink;
   final String? description;
+  final int timeAllocationDays;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -35,6 +37,7 @@ class Project {
       nextAction: row.nextAction,
       externalLink: row.externalLink,
       description: row.description,
+      timeAllocationDays: row.timeAllocationDays,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     );
@@ -49,6 +52,7 @@ class Project {
       nextAction: Value(nextAction),
       externalLink: Value(externalLink),
       description: Value(description),
+      timeAllocationDays: Value(timeAllocationDays),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -62,6 +66,7 @@ class Project {
     String? nextAction,
     String? externalLink,
     String? description,
+    int? timeAllocationDays,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool clearNextAction = false,
@@ -77,6 +82,7 @@ class Project {
       externalLink:
           clearExternalLink ? null : (externalLink ?? this.externalLink),
       description: clearDescription ? null : (description ?? this.description),
+      timeAllocationDays: timeAllocationDays ?? this.timeAllocationDays,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

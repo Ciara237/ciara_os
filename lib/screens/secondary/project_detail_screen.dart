@@ -10,6 +10,7 @@ import 'package:ciaraos/theme/app_theme.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
 import 'package:ciaraos/utils/opportunity_utils.dart';
+import 'package:ciaraos/utils/project_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +23,32 @@ abstract final class _ProjectStatusColors {
   static const Color paused = Color(0xFFF59E0B);
   static const Color shipped = Color(0xFF3B82F6);
   static const Color archived = Color(0xFF64748B);
+}
+
+class _DetailCompactIconButton extends StatelessWidget {
+  const _DetailCompactIconButton({
+    required this.onPressed,
+    required this.icon,
+    required this.color,
+  });
+
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(
+        minWidth: AppSpacing.xl,
+        minHeight: AppSpacing.xl,
+      ),
+      icon: Icon(icon, size: AppSpacing.lg, color: color),
+    );
+  }
 }
 
 class ProjectDetailScreen extends ConsumerStatefulWidget {
@@ -270,9 +297,10 @@ class ProjectDetailHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
       child: Row(
         children: [
-          IconButton(
+          _DetailCompactIconButton(
             onPressed: () => context.pop(),
-            icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+            icon: Icons.arrow_back,
+            color: colorScheme.onSurface,
           ),
           Icon(Icons.terminal, color: colorScheme.primary, size: AppSpacing.lg),
           const SizedBox(width: AppSpacing.sm),
@@ -287,9 +315,10 @@ class ProjectDetailHeader extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          IconButton(
+          _DetailCompactIconButton(
             onPressed: () => context.push('/projects/$projectId/edit'),
-            icon: Icon(Icons.edit, color: colorScheme.onSurfaceVariant),
+            icon: Icons.edit,
+            color: colorScheme.onSurfaceVariant,
           ),
         ],
       ),
@@ -324,6 +353,7 @@ class ProjectIdentitySection extends StatelessWidget {
               child: Text(
                 domainLabel(project.domain),
                 style: AppTypography.labelSmall.copyWith(color: domainColor),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -347,10 +377,13 @@ class ProjectIdentitySection extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            Text(
-              projectStatusLabel(project.status),
-              style: AppTypography.bodyMedium.copyWith(
-                color: colorScheme.onSurfaceVariant,
+            Flexible(
+              child: Text(
+                projectStatusLabel(project.status),
+                style: AppTypography.bodyMedium.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -493,12 +526,10 @@ class ProjectNextActionCard extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
+              _DetailCompactIconButton(
                 onPressed: isEditing ? onSave : onEdit,
-                icon: Icon(
-                  isEditing ? Icons.check : Icons.edit,
-                  color: colorScheme.primary,
-                ),
+                icon: isEditing ? Icons.check : Icons.edit,
+                color: colorScheme.primary,
               ),
             ],
           ),
@@ -745,12 +776,10 @@ class ProjectDescriptionCard extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
+              _DetailCompactIconButton(
                 onPressed: isEditing ? onSave : onEdit,
-                icon: Icon(
-                  isEditing ? Icons.check : Icons.edit,
-                  color: colorScheme.primary,
-                ),
+                icon: isEditing ? Icons.check : Icons.edit,
+                color: colorScheme.primary,
               ),
             ],
           ),
@@ -812,6 +841,17 @@ class ProjectMetadataSection extends StatelessWidget {
           value: relativeTimeLabel(project.updatedAt),
         ),
         const SizedBox(height: AppSpacing.sm),
+        _MetadataRow(
+          label: 'TIME ALLOCATION',
+          value: '${project.timeAllocationDays} days',
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _MetadataRow(
+          label: 'TIME REMAINING',
+          value:
+              '${projectRemainingDays(project)} ${projectRemainingDays(project) == 1 ? 'day' : 'days'}',
+        ),
+        const SizedBox(height: AppSpacing.sm),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -826,6 +866,7 @@ class ProjectMetadataSection extends StatelessWidget {
               child: Text(
                 domainLabel(project.domain),
                 style: AppTypography.labelSmall.copyWith(color: domainColor),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -851,10 +892,13 @@ class _MetadataRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: AppTypography.labelSmall.copyWith(
-            color: colorScheme.onSurfaceVariant,
+        Flexible(
+          fit: FlexFit.loose,
+          child: Text(
+            label,
+            style: AppTypography.labelSmall.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         const SizedBox(width: AppSpacing.md),
@@ -864,6 +908,8 @@ class _MetadataRow extends StatelessWidget {
             style: AppTypography.labelSmall.copyWith(
               color: colorScheme.onSurface,
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 3,
           ),
         ),
       ],

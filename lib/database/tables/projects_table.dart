@@ -16,6 +16,10 @@ class Projects extends Table {
 
   TextColumn get description => text().nullable()();
 
+  /// Project horizon in days — used for milestone / time-remaining calculations.
+  IntColumn get timeAllocationDays =>
+      integer().withDefault(const Constant(30))();
+
   DateTimeColumn get createdAt => dateTime()();
 
   DateTimeColumn get updatedAt => dateTime()();

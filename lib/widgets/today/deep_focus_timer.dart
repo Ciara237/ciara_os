@@ -1,74 +1,81 @@
-import 'dart:async';
-
+import 'package:ciaraos/providers/focus_session_provider.dart';
+import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
+import 'package:ciaraos/utils/focus_duration_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class DeepFocusTimer extends StatefulWidget {
+const _focusGoalSeconds = 45 * 60;
+
+class DeepFocusTimer extends ConsumerStatefulWidget {
   const DeepFocusTimer({super.key});
 
   @override
-  State<DeepFocusTimer> createState() => _DeepFocusTimerState();
+  ConsumerState<DeepFocusTimer> createState() => _DeepFocusTimerState();
 }
 
-class _DeepFocusTimerState extends State<DeepFocusTimer> {
-  static const int _totalSeconds = 45 * 60;
-
+class _DeepFocusTimerState extends ConsumerState<DeepFocusTimer> {
   bool _expanded = false;
-  bool _running = false;
-  int _remainingSeconds = _totalSeconds;
-  Timer? _timer;
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
 
   void _toggleExpanded() {
     setState(() => _expanded = !_expanded);
   }
 
   void _toggleRunning() {
-    if (_running) {
-      _timer?.cancel();
-      setState(() => _running = false);
+    final session = ref.read(focusSessionProvider);
+    final focus = ref.read(focusSessionProvider.notifier);
+
+    if (!session.isActive) {
       return;
     }
 
-    setState(() => _running = true);
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds <= 1) {
-        timer.cancel();
-        setState(() {
-          _remainingSeconds = 0;
-          _running = false;
-        });
-        return;
-      }
-      setState(() => _remainingSeconds--);
-    });
+    if (session.isRunning) {
+      focus.pause();
+      _syncStartedFlag(session.taskId!, started: false);
+      return;
+    }
+
+    focus.resume();
+    _syncStartedFlag(session.taskId!, started: true);
   }
 
   void _reset() {
-    _timer?.cancel();
-    setState(() {
-      _running = false;
-      _remainingSeconds = _totalSeconds;
-    });
+    final session = ref.read(focusSessionProvider);
+    if (!session.isActive) {
+      return;
+    }
+
+    ref.read(focusSessionProvider.notifier).reset();
+    _syncStartedFlag(session.taskId!, started: false);
   }
 
-  String get _formattedTime {
-    final minutes = (_remainingSeconds ~/ 60).toString().padLeft(2, '0');
-    final seconds = (_remainingSeconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
+  Future<void> _syncStartedFlag(int taskId, {required bool started}) async {
+    final task = await ref.read(taskRepositoryProvider).getById(taskId);
+    if (task == null || task.started == started) {
+      return;
+    }
 
-  double get _progress => _remainingSeconds / _totalSeconds;
+    await ref.read(taskRepositoryProvider).update(
+          task
+              .copyWith(
+                started: started,
+                updatedAt: DateTime.now(),
+              )
+              .toCompanion(),
+        );
+    ref.invalidate(taskByIdProvider(taskId));
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final session = ref.watch(focusSessionProvider);
+    final elapsed = session.totalElapsedSeconds;
+    final formattedTime = formatFocusClock(elapsed);
+    final progress = session.isActive
+        ? (elapsed / _focusGoalSeconds).clamp(0.0, 1.0)
+        : 0.0;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -91,15 +98,20 @@ class _DeepFocusTimerState extends State<DeepFocusTimer> {
             child: _expanded
                 ? _ExpandedTimer(
                     key: const ValueKey('expanded'),
-                    formattedTime: _formattedTime,
-                    progress: _progress,
-                    running: _running,
+                    taskId: session.taskId,
+                    formattedTime: formattedTime,
+                    progress: progress,
+                    running: session.isRunning,
+                    hasSession: session.isActive,
                     onCollapse: _toggleExpanded,
                     onResume: _toggleRunning,
                     onReset: _reset,
                   )
                 : _CollapsedTimer(
                     key: const ValueKey('collapsed'),
+                    formattedTime: formattedTime,
+                    hasSession: session.isActive,
+                    running: session.isRunning,
                   ),
           ),
         ),
@@ -109,7 +121,16 @@ class _DeepFocusTimerState extends State<DeepFocusTimer> {
 }
 
 class _CollapsedTimer extends StatelessWidget {
-  const _CollapsedTimer({super.key});
+  const _CollapsedTimer({
+    super.key,
+    required this.formattedTime,
+    required this.hasSession,
+    required this.running,
+  });
+
+  final String formattedTime;
+  final bool hasSession;
+  final bool running;
 
   @override
   Widget build(BuildContext context) {
@@ -129,9 +150,16 @@ class _CollapsedTimer extends StatelessWidget {
               ),
             ),
             Text(
-              'TAP TO EXPAND',
+              hasSession
+                  ? (running ? formattedTime : '$formattedTime · PAUSED')
+                  : 'TAP TO EXPAND',
               style: AppTypography.labelSmall.copyWith(
-                color: colorScheme.onSurfaceVariant,
+                color: hasSession
+                    ? colorScheme.primaryFixedDim
+                    : colorScheme.onSurfaceVariant,
+                fontFeatures: hasSession
+                    ? const [FontFeature.tabularFigures()]
+                    : null,
               ),
             ),
           ],
@@ -141,27 +169,35 @@ class _CollapsedTimer extends StatelessWidget {
   }
 }
 
-class _ExpandedTimer extends StatelessWidget {
+class _ExpandedTimer extends ConsumerWidget {
   const _ExpandedTimer({
     super.key,
+    required this.taskId,
     required this.formattedTime,
     required this.progress,
     required this.running,
+    required this.hasSession,
     required this.onCollapse,
     required this.onResume,
     required this.onReset,
   });
 
+  final int? taskId;
   final String formattedTime;
   final double progress;
   final bool running;
+  final bool hasSession;
   final VoidCallback onCollapse;
   final VoidCallback onResume;
   final VoidCallback onReset;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final taskAsync = taskId != null
+        ? ref.watch(taskByIdProvider(taskId!))
+        : null;
+    final taskTitle = taskAsync?.value?.title;
 
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -186,6 +222,17 @@ class _ExpandedTimer extends StatelessWidget {
               ),
             ],
           ),
+          if (taskTitle != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              taskTitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.bodyMedium.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           Text(
             formattedTime,
@@ -195,11 +242,22 @@ class _ExpandedTimer extends StatelessWidget {
               fontSize: 48,
               fontWeight: FontWeight.w700,
               height: 56 / 48,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            hasSession
+                ? (running ? 'Focus session active' : 'Focus session paused')
+                : 'Start a task to begin timing',
+            textAlign: TextAlign.center,
+            style: AppTypography.labelSmall.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
           LinearProgressIndicator(
-            value: progress,
+            value: hasSession ? progress : null,
             minHeight: AppSpacing.xs,
             backgroundColor: colorScheme.surfaceContainerLow,
             color: colorScheme.primary,
@@ -210,7 +268,7 @@ class _ExpandedTimer extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: onResume,
+                  onPressed: hasSession ? onResume : null,
                   child: Text(
                     running ? 'PAUSE' : 'RESUME',
                     style: AppTypography.labelLarge.copyWith(
@@ -222,7 +280,7 @@ class _ExpandedTimer extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: onReset,
+                  onPressed: hasSession ? onReset : null,
                   child: Text(
                     'RESET',
                     style: AppTypography.labelLarge.copyWith(
