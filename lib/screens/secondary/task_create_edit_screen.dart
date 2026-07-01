@@ -70,6 +70,14 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant TaskCreateEditScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.taskId != widget.taskId) {
+      _didPopulate = false;
+    }
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _notesController.dispose();
@@ -139,6 +147,7 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
           updatedAt: now,
         );
         await repository.update(task.toCompanion());
+        ref.invalidate(taskByIdProvider(task.id));
       } else {
         final task = Task(
           id: 0,
@@ -238,17 +247,12 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
     if (widget.isEditMode) {
       final taskId = int.parse(widget.taskId!);
       final taskAsync = ref.watch(taskByIdProvider(taskId));
+      final task = taskAsync.value;
 
-      ref.listen(taskByIdProvider(taskId), (previous, next) {
-        next.whenData((task) {
-          if (task != null && !_didPopulate && mounted) {
-            setState(() {
-              _didPopulate = true;
-              _populateFromTask(task);
-            });
-          }
-        });
-      });
+      if (task != null && !_didPopulate) {
+        _didPopulate = true;
+        _populateFromTask(task);
+      }
 
       if (taskAsync.isLoading && !_didPopulate) {
         return Scaffold(
@@ -381,11 +385,17 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
                   const SizedBox(height: AppSpacing.lg),
                   const _FormFieldLabel(text: 'LINKED PROJECT'),
                   const SizedBox(height: AppSpacing.sm),
-                  _ProjectDropdown(
-                    projects: projectsAsync.value ?? const [],
-                    selectedProjectId: _selectedProjectId,
-                    onChanged: (projectId) =>
-                        setState(() => _selectedProjectId = projectId),
+                  projectsAsync.when(
+                    loading: () => const _ProjectDropdownLoading(),
+                    error: (_, _) => const _ProjectDropdownMessage(
+                      text: 'Could not load projects',
+                    ),
+                    data: (projects) => _ProjectDropdown(
+                      projects: projects,
+                      selectedProjectId: _selectedProjectId,
+                      onChanged: (projectId) =>
+                          setState(() => _selectedProjectId = projectId),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   const _FormFieldLabel(text: 'FLAG FOR TODAY'),
@@ -802,33 +812,40 @@ class _ProjectDropdown extends StatelessWidget {
   final int? selectedProjectId;
   final ValueChanged<int?> onChanged;
 
+  static bool _isLinkable(Project project, int? selectedProjectId) {
+    if (project.status != ProjectStatus.archived) {
+      return true;
+    }
+    return project.id == selectedProjectId;
+  }
+
+  static String _projectLabel(Project project) {
+    if (project.status == ProjectStatus.archived) {
+      return '${project.name} (Archived)';
+    }
+    if (project.status == ProjectStatus.paused) {
+      return '${project.name} (Paused)';
+    }
+    return project.name;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final activeProjects =
-        projects.where((p) => p.status == ProjectStatus.active).toList();
-    final validProjectId = activeProjects.any((p) => p.id == selectedProjectId)
+    final linkableProjects = projects
+        .where((p) => _isLinkable(p, selectedProjectId))
+        .toList();
+    final validProjectId = linkableProjects.any((p) => p.id == selectedProjectId)
         ? selectedProjectId
         : null;
 
-    if (activeProjects.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.md,
-        ),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(color: colorScheme.outlineVariant),
-        ),
-        child: Text(
-          'No projects yet',
-          style: AppTypography.bodyLarge.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
+    if (projects.isEmpty) {
+      return const _ProjectDropdownMessage(text: 'No projects yet');
+    }
+
+    if (linkableProjects.isEmpty) {
+      return const _ProjectDropdownMessage(
+        text: 'No linkable projects — unarchive a project to link tasks',
       );
     }
 
@@ -854,7 +871,7 @@ class _ProjectDropdown extends StatelessWidget {
                 ),
               ),
             ),
-            for (final project in activeProjects)
+            for (final project in linkableProjects)
               DropdownMenuItem<int?>(
                 value: project.id,
                 child: Row(
@@ -870,7 +887,7 @@ class _ProjectDropdown extends StatelessWidget {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        project.name,
+                        _projectLabel(project),
                         style: AppTypography.bodyLarge.copyWith(
                           color: colorScheme.onSurface,
                         ),
@@ -881,6 +898,65 @@ class _ProjectDropdown extends StatelessWidget {
               ),
           ],
           onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectDropdownMessage extends StatelessWidget {
+  const _ProjectDropdownMessage({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Text(
+        text,
+        style: AppTypography.bodyLarge.copyWith(
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectDropdownLoading extends StatelessWidget {
+  const _ProjectDropdownLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
         ),
       ),
     );

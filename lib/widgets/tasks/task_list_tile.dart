@@ -88,36 +88,40 @@ class TaskListTile extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (showCheckbox) ...[
+                if (showCheckbox)
                   Padding(
-                    padding: const EdgeInsets.only(
-                      left: AppSpacing.sm,
-                      top: AppSpacing.md,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.sm,
                     ),
-                    child: SizedBox(
-                      width: AppSpacing.lg,
-                      height: AppSpacing.lg,
-                      child: Checkbox(
-                        value: isDone,
-                        onChanged: onCheckboxTap == null
-                            ? null
-                            : (_) => onCheckboxTap!(),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusSm),
+                    child: Center(
+                      child: SizedBox(
+                        width: AppSpacing.md,
+                        height: AppSpacing.md,
+                        child: Checkbox(
+                          value: isDone,
+                          onChanged: onCheckboxTap == null
+                              ? null
+                              : (_) => onCheckboxTap!(),
+                          visualDensity: VisualDensity.compact,
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppSpacing.radiusSm),
+                          ),
+                          side: BorderSide(color: colorScheme.outlineVariant),
                         ),
-                        side: BorderSide(color: colorScheme.outlineVariant),
                       ),
                     ),
                   ),
-                ],
                 Container(
                   width: AppSpacing.taskBorderWidth,
                   decoration: BoxDecoration(
                     color: domainColor,
-                    borderRadius: const BorderRadius.horizontal(
-                      left: Radius.circular(AppSpacing.radiusMd),
-                    ),
+                    borderRadius: showCheckbox
+                        ? BorderRadius.zero
+                        : const BorderRadius.horizontal(
+                            left: Radius.circular(AppSpacing.radiusMd),
+                          ),
                   ),
                 ),
                 Expanded(

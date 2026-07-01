@@ -1,4 +1,5 @@
 import 'package:ciaraos/models/task.dart';
+import 'package:ciaraos/providers/focus_session_provider.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/utils/today_task_grouper.dart';
@@ -13,8 +14,18 @@ class TodayTaskListSection extends ConsumerWidget {
 
   Future<void> _toggleStarted(WidgetRef ref, Task task) async {
     final repository = ref.read(taskRepositoryProvider);
+    final focus = ref.read(focusSessionProvider.notifier);
+    final session = ref.read(focusSessionProvider);
+    final willStart = !task.started;
+
+    if (willStart) {
+      focus.startForTask(task.id);
+    } else if (session.isTrackingTask(task.id)) {
+      focus.pause();
+    }
+
     final updated = task.copyWith(
-      started: !task.started,
+      started: willStart,
       updatedAt: DateTime.now(),
     );
     await repository.update(updated.toCompanion());

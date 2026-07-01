@@ -2,6 +2,7 @@ import 'package:ciaraos/models/enums/priority.dart';
 import 'package:ciaraos/models/enums/task_status.dart';
 import 'package:ciaraos/models/project.dart';
 import 'package:ciaraos/models/task.dart';
+import 'package:ciaraos/providers/focus_session_provider.dart';
 import 'package:ciaraos/providers/project_providers.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/theme/app_colors.dart';
@@ -9,6 +10,7 @@ import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_theme.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
+import 'package:ciaraos/utils/focus_duration_utils.dart';
 import 'package:ciaraos/utils/opportunity_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +20,33 @@ import 'package:intl/intl.dart';
 const _cardMaxWidth = 672.0;
 const _wideBreakpoint = 768.0;
 const _cardRadius = 12.0;
+
+/// Tight icon control — avoids default 48px [IconButton] min width overflow.
+class _DetailCompactIconButton extends StatelessWidget {
+  const _DetailCompactIconButton({
+    required this.onPressed,
+    required this.icon,
+    required this.color,
+  });
+
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints(
+        minWidth: AppSpacing.xl,
+        minHeight: AppSpacing.xl,
+      ),
+      icon: Icon(icon, size: AppSpacing.lg, color: color),
+    );
+  }
+}
 
 class TaskDetailScreen extends ConsumerStatefulWidget {
   const TaskDetailScreen({super.key, required this.taskId});
@@ -62,6 +91,13 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       return;
     }
 
+    final focus = ref.read(focusSessionProvider.notifier);
+    if (started) {
+      focus.startForTask(task.id);
+    } else if (ref.read(focusSessionProvider).isTrackingTask(task.id)) {
+      focus.pause();
+    }
+
     setState(() {
       _optimisticStarted = started;
       _isUpdating = true;
@@ -83,10 +119,25 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     await _setStarted(task, false);
   }
 
+  Future<void> _toggleFocusTimer(Task task) async {
+    final session = ref.read(focusSessionProvider);
+    if (session.isTrackingTask(task.id) && session.isRunning) {
+      await _setStarted(task, false);
+      return;
+    }
+    if (session.isTrackingTask(task.id) && !session.isRunning) {
+      await _setStarted(task, true);
+      return;
+    }
+    await _setStarted(task, true);
+  }
+
   Future<void> _markComplete(Task task) async {
     if (_isUpdating || task.status == TaskStatus.done) {
       return;
     }
+
+    ref.read(focusSessionProvider.notifier).clear();
 
     setState(() => _isUpdating = true);
     try {
@@ -242,7 +293,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                       notesController: _notesController,
                       onClose: () => context.pop(),
                       onEdit: () => context.push('/tasks/${task.id}/edit'),
-                      onStart: () => _setStarted(task, true),
+                      onStart: () => _toggleFocusTimer(task),
                       onEditDeadline: () => _pickDeadline(task),
                       onOpenProject: task.projectId != null
                           ? () => context.push('/projects/${task.projectId}')
@@ -472,6 +523,7 @@ class TaskDetailCardHeader extends StatelessWidget {
               child: Wrap(
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   _DomainContextChip(
                     label: domainLabel(task.domain),
@@ -480,37 +532,26 @@ class TaskDetailCardHeader extends StatelessWidget {
                   ),
                   if (task.projectId != null)
                     _ProjectRefChip(
-                      label:
-                          'PRJ-${task.projectId!.toString().padLeft(3, '0')}',
+                      label: 'PRJ-${task.projectId!.toString().padLeft(3, '0')}',
                     ),
                 ],
               ),
             ),
-            IconButton(
-              onPressed: onEdit,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(
-                minWidth: AppSpacing.xl,
-                minHeight: AppSpacing.xl,
-              ),
-              icon: Icon(
-                Icons.edit,
-                size: AppSpacing.lg,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-            IconButton(
-              onPressed: onClose,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(
-                minWidth: AppSpacing.xl,
-                minHeight: AppSpacing.xl,
-              ),
-              icon: Icon(
-                Icons.close,
-                size: AppSpacing.lg,
-                color: colorScheme.onSurfaceVariant,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _DetailCompactIconButton(
+                  onPressed: onEdit,
+                  icon: Icons.edit,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                _DetailCompactIconButton(
+                  onPressed: onClose,
+                  icon: Icons.close,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ],
             ),
           ],
         ),
@@ -541,25 +582,34 @@ class _DomainContextChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: AppSpacing.xs),
-          Text(
-            label,
-            style: AppTypography.labelLarge.copyWith(color: color),
-          ),
-        ],
+    final maxChipWidth = MediaQuery.sizeOf(context).width - AppSpacing.xl * 4;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxChipWidth),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: AppSpacing.xs),
+            Flexible(
+              child: Text(
+                label,
+                style: AppTypography.labelLarge.copyWith(color: color),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -626,10 +676,9 @@ class TaskDetailBodyGrid extends StatelessWidget {
         _TaskStatusField(status: task.status),
         const SizedBox(height: AppSpacing.lg),
         _TimeAllocationField(
-          started: started,
+          taskId: task.id,
           isUpdating: isUpdating,
-          updatedAt: task.updatedAt,
-          onStart: onStart,
+          onToggle: onStart,
         ),
       ],
     );
@@ -818,29 +867,40 @@ class _PulsingStatusDotState extends State<_PulsingStatusDot>
   }
 }
 
-class _TimeAllocationField extends StatelessWidget {
+class _TimeAllocationField extends ConsumerWidget {
   const _TimeAllocationField({
-    required this.started,
+    required this.taskId,
     required this.isUpdating,
-    required this.updatedAt,
-    required this.onStart,
+    required this.onToggle,
   });
 
-  final bool started;
+  final int taskId;
   final bool isUpdating;
-  final DateTime updatedAt;
-  final VoidCallback onStart;
+  final VoidCallback onToggle;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final session = ref.watch(focusSessionProvider);
+    final isTracking = session.isTrackingTask(taskId);
+    final elapsed = isTracking ? session.totalElapsedSeconds : 0;
+    final isRunning = isTracking && session.isRunning;
+
+    final primaryLabel = isTracking
+        ? formatFocusClock(elapsed)
+        : 'Not started';
+    final secondaryLabel = isRunning
+        ? 'Task in progress'
+        : isTracking
+            ? 'Paused · tap to resume'
+            : 'Tap to begin';
 
     return _LabeledField(
       label: 'TIME ALLOCATION',
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: started || isUpdating ? null : onStart,
+          onTap: isUpdating ? null : onToggle,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           child: Ink(
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -854,8 +914,10 @@ class _TimeAllocationField extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.timer_outlined,
-                  color: colorScheme.outline,
+                  isRunning ? Icons.timer : Icons.timer_outlined,
+                  color: isRunning
+                      ? colorScheme.primaryFixedDim
+                      : colorScheme.outline,
                   size: AppSpacing.lg,
                 ),
                 const SizedBox(width: AppSpacing.md),
@@ -864,17 +926,18 @@ class _TimeAllocationField extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        started
-                            ? 'Started ${relativeTimeLabel(updatedAt)}'
-                            : 'Not started',
+                        primaryLabel,
                         style: AppTypography.bodyMedium.copyWith(
                           color: colorScheme.onSurface,
+                          fontFeatures: isTracking
+                              ? const [FontFeature.tabularFigures()]
+                              : null,
                         ),
                       ),
                       Text(
-                        started ? 'Task in progress' : 'Tap to begin',
+                        secondaryLabel,
                         style: AppTypography.labelLarge.copyWith(
-                          color: started
+                          color: isRunning
                               ? colorScheme.primaryFixedDim
                               : colorScheme.onSurfaceVariant,
                         ),
@@ -915,20 +978,14 @@ class _DeadlineField extends StatelessWidget {
             child: Text(
               display.label,
               style: AppTypography.bodyLarge.copyWith(color: display.color),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ),
-          IconButton(
+          _DetailCompactIconButton(
             onPressed: onEditDeadline,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: AppSpacing.xl,
-              minHeight: AppSpacing.xl,
-            ),
-            icon: Icon(
-              Icons.edit,
-              size: AppSpacing.md,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            icon: Icons.edit,
+            color: colorScheme.onSurfaceVariant,
           ),
         ],
       ),
@@ -1082,18 +1139,10 @@ class TaskExecutionNotesSection extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
+              _DetailCompactIconButton(
                 onPressed: isEditing ? onSave : onEdit,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: AppSpacing.xl,
-                  minHeight: AppSpacing.xl,
-                ),
-                icon: Icon(
-                  isEditing ? Icons.check : Icons.edit,
-                  color: colorScheme.primary,
-                  size: AppSpacing.lg,
-                ),
+                icon: isEditing ? Icons.check : Icons.edit,
+                color: colorScheme.primary,
               ),
             ],
           ),
@@ -1226,10 +1275,13 @@ class _MetadataRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: AppTypography.labelSmall.copyWith(
-            color: colorScheme.onSurfaceVariant,
+        Flexible(
+          fit: FlexFit.loose,
+          child: Text(
+            label,
+            style: AppTypography.labelSmall.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         const SizedBox(width: AppSpacing.md),
@@ -1239,6 +1291,8 @@ class _MetadataRow extends StatelessWidget {
             style: AppTypography.labelSmall.copyWith(
               color: valueColor ?? colorScheme.onSurface,
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 3,
           ),
         ),
       ],

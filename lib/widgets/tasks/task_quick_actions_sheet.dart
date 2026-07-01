@@ -17,8 +17,9 @@ Future<void> showTaskQuickActionsSheet({
       final colorScheme = Theme.of(sheetContext).colorScheme;
       final repository = ref.read(taskRepositoryProvider);
 
-      Future<void> updateTask(Task updated) {
-        return repository.update(updated.toCompanion());
+      Future<void> updateTask(Task updated) async {
+        await repository.update(updated.toCompanion());
+        ref.invalidate(taskByIdProvider(task.id));
       }
 
       return SafeArea(
