@@ -95,10 +95,16 @@ class _OpportunitiesScreenState extends ConsumerState<OpportunitiesScreen> {
                     data: (groups) {
                       if (groups.isEmpty) {
                         return EmptyState(
+                          style: EmptyStateStyle.pipeline,
+                          title: 'Pipeline Clear',
                           message:
-                              'No opportunities tracked yet. Add your first application to get started.',
-                          actionLabel: 'ADD OPPORTUNITY',
+                              'Your opportunity pipeline is currently a clean '
+                              'slate. Ready to track the next big lead or '
+                              'application?',
+                          actionLabel: 'LOG FIRST LEAD',
+                          actionIcon: Icons.add,
                           onAction: _openNewOpportunity,
+                          footer: const PipelineEmptyStateFooter(),
                         );
                       }
 

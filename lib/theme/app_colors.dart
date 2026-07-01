@@ -109,6 +109,12 @@ abstract final class AppColors {
     Domain.other: Color(0xFF475569),
   };
 
+  /// Priority chip colors — shared by task create/edit and task detail.
+  static const Color priorityLow = Color(0xFF64748B);
+  static const Color priorityMedium = Color(0xFF3B82F6);
+  static const Color priorityHigh = Color(0xFFF59E0B);
+  static const Color priorityCritical = Color(0xFFEF4444);
+
   static const ColorScheme darkScheme = ColorScheme(
     brightness: Brightness.dark,
     primary: darkPrimary,

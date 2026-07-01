@@ -6,6 +6,7 @@ import 'package:ciaraos/models/project.dart';
 import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/providers/project_providers.dart';
 import 'package:ciaraos/providers/task_providers.dart';
+import 'package:ciaraos/theme/app_colors.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_theme.dart';
 import 'package:ciaraos/theme/app_typography.dart';
@@ -14,14 +15,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
-/// Priority chip colors — form-specific, not domain/theme tokens.
-abstract final class _PriorityColors {
-  static const Color low = Color(0xFF64748B);
-  static const Color medium = Color(0xFF3B82F6);
-  static const Color high = Color(0xFFF59E0B);
-  static const Color critical = Color(0xFFEF4444);
-}
 
 class TaskCreateEditScreen extends ConsumerStatefulWidget {
   const TaskCreateEditScreen({super.key, this.taskId});
@@ -583,10 +576,10 @@ class _PriorityChipRow extends StatelessWidget {
 
   static Color _colorFor(Priority priority) {
     return switch (priority) {
-      Priority.low => _PriorityColors.low,
-      Priority.medium => _PriorityColors.medium,
-      Priority.high => _PriorityColors.high,
-      Priority.critical => _PriorityColors.critical,
+      Priority.low => AppColors.priorityLow,
+      Priority.medium => AppColors.priorityMedium,
+      Priority.high => AppColors.priorityHigh,
+      Priority.critical => AppColors.priorityCritical,
     };
   }
 

@@ -53,14 +53,21 @@ class TasksBacklogListSection extends ConsumerWidget {
 
         if (totalCount == 0) {
           return EmptyState(
-            message: 'Your backlog is empty. Add your first task.',
-            actionLabel: 'ADD TASK',
+            style: EmptyStateStyle.tasks,
+            title: 'The Backlog is Clear',
+            message:
+                'A blank slate. Begin capturing actionable items to '
+                'structure your upcoming focus cycles.',
+            actionLabel: 'INITIALIZE TASK',
+            actionIcon: Icons.add,
             onAction: () => context.push('/tasks/new'),
+            footer: const TasksEmptyStateFooter(),
           );
         }
 
         if (tasks.isEmpty) {
           return EmptyState(
+            title: 'No Matching Tasks',
             message:
                 'No tasks match the current filters. Clear filters to see all tasks.',
             actionLabel: 'CLEAR FILTERS',

@@ -12,18 +12,40 @@ class WeeklyBarChart extends StatelessWidget {
   final List<double> dailyRates;
   final int todayIndex;
 
-  static const _dayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  static const _dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const _chartHeight = 160.0;
+  static const _maxBarWidth = 40.0;
+
+  int? _lowestWeekdayIndex() {
+    int? lowestIndex;
+    var lowestRate = double.infinity;
+    for (var i = 0; i < 5; i++) {
+      if (dailyRates[i] < lowestRate) {
+        lowestRate = dailyRates[i];
+        lowestIndex = i;
+      }
+    }
+    return lowestIndex;
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final hasData = dailyRates.any((rate) => rate > 0);
+    final lowestWeekday = _lowestWeekdayIndex();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Text(
+          'DAILY FOCUS DISTRIBUTION (HRS)',
+          style: AppTypography.labelSmall.copyWith(
+            color: colorScheme.onSurfaceVariant,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
         SizedBox(
-          height: 160,
+          height: _chartHeight,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -32,11 +54,9 @@ class WeeklyBarChart extends StatelessWidget {
                 Expanded(
                   child: _BarColumn(
                     rate: dailyRates[i],
-                    isToday: i == todayIndex,
-                    trackColor: colorScheme.surfaceContainerHighest,
-                    fillColor: i == todayIndex
-                        ? colorScheme.primary
-                        : colorScheme.surfaceContainerHighest,
+                    isWeekend: i >= 5,
+                    isLowWeekday: lowestWeekday == i,
+                    colorScheme: colorScheme,
                   ),
                 ),
               ],
@@ -53,23 +73,15 @@ class WeeklyBarChart extends StatelessWidget {
                   _dayLabels[i],
                   textAlign: TextAlign.center,
                   style: AppTypography.labelSmall.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+                    color: i >= 5
+                        ? colorScheme.outline
+                        : colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
             ],
           ],
         ),
-        if (!hasData) ...[
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'No data yet this week',
-            textAlign: TextAlign.center,
-            style: AppTypography.bodyMedium.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
       ],
     );
   }
@@ -78,40 +90,65 @@ class WeeklyBarChart extends StatelessWidget {
 class _BarColumn extends StatelessWidget {
   const _BarColumn({
     required this.rate,
-    required this.isToday,
-    required this.trackColor,
-    required this.fillColor,
+    required this.isWeekend,
+    required this.isLowWeekday,
+    required this.colorScheme,
   });
 
   final double rate;
-  final bool isToday;
-  final Color trackColor;
-  final Color fillColor;
+  final bool isWeekend;
+  final bool isLowWeekday;
+  final ColorScheme colorScheme;
+
+  Color _fillColor() {
+    if (isWeekend) {
+      return colorScheme.outline;
+    }
+    if (isLowWeekday) {
+      return colorScheme.tertiary;
+    }
+    return colorScheme.primary;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final fillHeight = 160 * rate.clamp(0.0, 1.0);
+    final clampedRate = rate.clamp(0.0, 1.0);
+    final fillHeight = WeeklyBarChart._chartHeight * clampedRate;
+    final fillColor = _fillColor();
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Container(
-          height: 160,
-          decoration: BoxDecoration(
-            color: trackColor.withValues(alpha: isToday ? 0.35 : 0.5),
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(AppSpacing.radiusSm),
-            ),
-          ),
+        Align(
           alignment: Alignment.bottomCenter,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            height: fillHeight,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: isToday ? fillColor : fillColor.withValues(alpha: 0.65),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(AppSpacing.radiusSm),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: WeeklyBarChart._maxBarWidth,
+            ),
+            child: SizedBox(
+              height: WeeklyBarChart._chartHeight,
+              width: double.infinity,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(AppSpacing.radiusSm),
+                  ),
+                ),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    height: fillHeight,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: fillColor,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(AppSpacing.radiusSm),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

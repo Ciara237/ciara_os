@@ -58,9 +58,13 @@ class ProjectsScreen extends ConsumerWidget {
                   data: (projects) {
                     if (projects.isEmpty) {
                       return EmptyState(
+                        style: EmptyStateStyle.projects,
+                        title: 'No Active Projects',
                         message:
-                            'No projects yet. Create your first project to start tracking your work.',
-                        actionLabel: '+ New Project',
+                            'The architecture is ready. Define your first '
+                            'domain project to begin structured execution.',
+                        actionLabel: 'INITIALIZE PROJECT',
+                        actionIcon: Icons.add,
                         onAction: () => _openNewProject(context),
                       );
                     }

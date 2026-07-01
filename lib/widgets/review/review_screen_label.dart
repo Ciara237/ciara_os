@@ -2,22 +2,17 @@ import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// Positive delta green — matches Opportunities active status dot.
-const reviewPositiveDeltaColor = Color(0xFF10B981);
-
 class ReviewScreenLabel extends StatelessWidget {
   const ReviewScreenLabel({
     super.key,
     required this.focusScorePercent,
     required this.deltaPercent,
     required this.hasPriorWeekData,
-    required this.insightText,
   });
 
   final int focusScorePercent;
   final double? deltaPercent;
   final bool hasPriorWeekData;
-  final String insightText;
 
   @override
   Widget build(BuildContext context) {
@@ -25,55 +20,76 @@ class ReviewScreenLabel extends StatelessWidget {
     final deltaColor = !hasPriorWeekData
         ? colorScheme.onSurfaceVariant
         : (deltaPercent! > 0
-            ? reviewPositiveDeltaColor
+            ? colorScheme.primary
             : deltaPercent! < 0
                 ? colorScheme.error
                 : colorScheme.onSurfaceVariant);
 
     final deltaText = !hasPriorWeekData
-        ? '—'
-        : '${deltaPercent! >= 0 ? '+' : ''}${deltaPercent!.toStringAsFixed(1)}%';
+        ? '— vs last week'
+        : '${deltaPercent! >= 0 ? '+' : ''}${deltaPercent!.toStringAsFixed(1)}% vs last week';
+
+    final trendIcon = !hasPriorWeekData
+        ? Icons.trending_flat
+        : deltaPercent! > 0
+            ? Icons.trending_up
+            : deltaPercent! < 0
+                ? Icons.trending_down
+                : Icons.trending_flat;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'WEEKLY PERFORMANCE',
-          style: AppTypography.labelSmall.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'AGGREGATE EFFICIENCY',
+              style: AppTypography.labelSmall.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               '$focusScorePercent%',
               style: AppTypography.displayLarge.copyWith(
                 color: colorScheme.onSurface,
               ),
             ),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              deltaText,
-              style: AppTypography.bodyLarge.copyWith(color: deltaColor),
-            ),
           ],
         ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          'Focus Score',
-          style: AppTypography.headingLarge.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          insightText,
-          style: AppTypography.bodyLarge.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  trendIcon,
+                  size: AppSpacing.md,
+                  color: deltaColor,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  deltaText,
+                  style: AppTypography.bodyMedium.copyWith(color: deltaColor),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              child: SizedBox(
+                height: AppSpacing.xs,
+                child: LinearProgressIndicator(
+                  value: focusScorePercent / 100,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
