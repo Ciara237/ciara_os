@@ -1,8 +1,10 @@
+import 'package:ciaraos/models/domain_analytics.dart';
 import 'package:ciaraos/models/enums/domain.dart';
 import 'package:ciaraos/models/enums/task_status.dart';
 import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/providers/database_provider.dart';
 import 'package:ciaraos/repositories/task_repository.dart';
+import 'package:ciaraos/services/domain_analytics_service.dart';
 import 'package:ciaraos/utils/task_filter_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -53,5 +55,18 @@ final filteredTasksProvider = Provider<AsyncValue<List<Task>>>((ref) {
       deadline: deadline,
       status: status,
     ),
+  );
+});
+
+final domainBreakdownPeriodProvider = StateProvider<String>((ref) => 'week');
+
+final domainBreakdownProvider =
+    FutureProvider.family<DomainBreakdownData, String>((ref, period) async {
+  ref.watch(allTasksProvider);
+  final tasks = await ref.watch(allTasksProvider.future);
+  return DomainAnalyticsService().compute(
+    tasks: tasks,
+    sessions: const [],
+    period: period,
   );
 });
