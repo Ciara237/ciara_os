@@ -9,14 +9,11 @@ import 'package:ciaraos/providers/project_providers.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/providers/theme_provider.dart';
 import 'package:ciaraos/providers/profile_providers.dart';
-import 'package:ciaraos/services/profile_preferences.dart';
-import 'package:ciaraos/theme/app_colors.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_theme.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
 import 'package:ciaraos/utils/review_stats_utils.dart';
-import 'package:ciaraos/widgets/profile/profile_name_prompt_dialog.dart';
 import 'package:ciaraos/widgets/navigation/primary_drawer.dart';
 import 'package:ciaraos/widgets/today/today_header.dart';
 import 'package:flutter/material.dart';
@@ -105,10 +102,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() => _isEditingName = false);
   }
 
-  Future<void> _promptForName() async {
-    await showProfileNamePromptDialog(context, ref, isFirstTime: false);
-  }
-
   Future<void> _setThemeMode(ThemeMode mode) async {
     ref.read(themeModeProvider.notifier).state = mode;
     await saveThemeMode(mode);
@@ -168,7 +161,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   onConfirmNameEdit: _confirmNameEdit,
                   onCancelNameEdit: () =>
                       _cancelNameEdit(profile.resolvedDisplayName),
-                  onPromptForName: _promptForName,
                   onStartEditTagline: () => _startEditingTagline(profile.tagline),
                   onConfirmTaglineEdit: _confirmTaglineEdit,
                   onCancelTaglineEdit: () =>
@@ -299,7 +291,6 @@ class _IdentitySection extends StatelessWidget {
     required this.onStartEditName,
     required this.onConfirmNameEdit,
     required this.onCancelNameEdit,
-    required this.onPromptForName,
     required this.onStartEditTagline,
     required this.onConfirmTaglineEdit,
     required this.onCancelTaglineEdit,
@@ -315,7 +306,6 @@ class _IdentitySection extends StatelessWidget {
   final VoidCallback onStartEditName;
   final VoidCallback onConfirmNameEdit;
   final VoidCallback onCancelNameEdit;
-  final VoidCallback onPromptForName;
   final VoidCallback onStartEditTagline;
   final VoidCallback onConfirmTaglineEdit;
   final VoidCallback onCancelTaglineEdit;
@@ -396,17 +386,6 @@ class _IdentitySection extends StatelessWidget {
                 constraints: const BoxConstraints(),
               ),
             ],
-          ),
-        if (!isEditingName)
-          TextButton(
-            onPressed: onPromptForName,
-            child: Text(
-              'Change display name',
-              style: AppTypography.labelLarge.copyWith(
-                color: colorScheme.primary,
-                decoration: TextDecoration.none,
-              ),
-            ),
           ),
         const SizedBox(height: AppSpacing.sm),
         if (isEditingTagline)

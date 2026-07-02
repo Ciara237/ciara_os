@@ -34,15 +34,18 @@ class CiaraOsApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
 
-    return ProfileNameSetupGate(
-      child: MaterialApp.router(
-        title: 'Ciara OS',
-        themeMode: themeMode,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        debugShowCheckedModeBanner: false,
-        routerConfig: router,
-      ),
+    return MaterialApp.router(
+      title: 'Ciara OS',
+      themeMode: themeMode,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      debugShowCheckedModeBanner: false,
+      routerConfig: router,
+      builder: (context, child) {
+        return ProfileNameSetupGate(
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

@@ -108,8 +108,8 @@ class _ProfileNameSetupGateState extends ConsumerState<ProfileNameSetupGate> {
   bool _promptShown = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  void initState() {
+    super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybePrompt());
   }
 
