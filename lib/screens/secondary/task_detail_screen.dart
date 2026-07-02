@@ -155,12 +155,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
     setState(() => _isUpdating = true);
     try {
-      await _persistTask(
-        task.copyWith(
-          status: TaskStatus.done,
-          started: false,
-        ),
-      );
+      await _persistTask(task.markedDone());
       await engine.applyPlanningAccuracyOnComplete(task.id);
       await DailyActivityStats.recordActiveDay();
       ref.read(dailyStatsRevisionProvider.notifier).state++;

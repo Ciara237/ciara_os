@@ -1,4 +1,3 @@
-import 'package:ciaraos/models/enums/task_status.dart';
 import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/theme/app_typography.dart';
@@ -52,12 +51,7 @@ Future<void> showTaskQuickActionsSheet({
                 ),
               ),
               onTap: () async {
-                await updateTask(
-                  task.copyWith(
-                    status: TaskStatus.done,
-                    updatedAt: DateTime.now(),
-                  ),
-                );
+                await updateTask(task.markedDone());
                 if (sheetContext.mounted) {
                   Navigator.pop(sheetContext);
                 }

@@ -21,6 +21,7 @@ class ExecutiveBriefCard extends ConsumerStatefulWidget {
 class _ExecutiveBriefCardState extends ConsumerState<ExecutiveBriefCard> {
   late bool _isCollapsed;
   bool _fetchFailed = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -29,7 +30,10 @@ class _ExecutiveBriefCardState extends ConsumerState<ExecutiveBriefCard> {
   }
 
   Future<void> _fetchBrief() async {
-    setState(() => _fetchFailed = false);
+    setState(() {
+      _fetchFailed = false;
+      _errorMessage = null;
+    });
 
     final todayTasks = ref.read(todayTasksProvider).value ?? [];
     final monday = mondayOfWeek(DateTime.now());
@@ -53,8 +57,10 @@ class _ExecutiveBriefCardState extends ConsumerState<ExecutiveBriefCard> {
     }
 
     final brief = ref.read(executiveBriefProvider).value;
+    final error = ref.read(executiveBriefProvider.notifier).lastError;
     setState(() {
       _fetchFailed = brief == null;
+      _errorMessage = error;
       if (brief != null) {
         _isCollapsed = false;
       }
@@ -85,7 +91,11 @@ class _ExecutiveBriefCardState extends ConsumerState<ExecutiveBriefCard> {
                       onCollapse: () => setState(() => _isCollapsed = true),
                     )
               : _fetchFailed
-                  ? _ErrorBriefContent(onRetry: _fetchBrief)
+                  ? _ErrorBriefContent(
+                      message: _errorMessage ??
+                          'Could not reach AI backend. Is the backend running?',
+                      onRetry: _fetchBrief,
+                    )
                   : _EmptyBriefContent(onGenerate: _fetchBrief),
     );
   }
@@ -238,8 +248,12 @@ class _LoadingBriefContent extends StatelessWidget {
 }
 
 class _ErrorBriefContent extends StatelessWidget {
-  const _ErrorBriefContent({required this.onRetry});
+  const _ErrorBriefContent({
+    required this.message,
+    required this.onRetry,
+  });
 
+  final String message;
   final VoidCallback onRetry;
 
   @override
@@ -252,7 +266,7 @@ class _ErrorBriefContent extends StatelessWidget {
         const _BriefLabel(),
         const SizedBox(height: AppSpacing.md),
         Text(
-          'Could not reach AI backend. Is the backend running?',
+          message,
           style: AppTypography.bodyMedium.copyWith(
             color: colorScheme.onSurfaceVariant,
             decoration: TextDecoration.none,

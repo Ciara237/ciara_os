@@ -144,4 +144,13 @@ class Task {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  Task markedDone({DateTime? updatedAt}) {
+    return copyWith(
+      status: TaskStatus.done,
+      today: false,
+      started: false,
+      updatedAt: updatedAt ?? DateTime.now(),
+    );
+  }
 }

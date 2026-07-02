@@ -72,8 +72,29 @@ bool _matchesDeadlineFilter(
   };
 }
 
-bool _isSameDay(DateTime a, DateTime b) {
+bool _isSameDay(DateTime a, DateTime b) => isSameCalendarDay(a, b);
+
+bool isSameCalendarDay(DateTime a, DateTime b) {
   return a.year == b.year && a.month == b.month && a.day == b.day;
+}
+
+bool taskCompletedToday(Task task, {DateTime? now}) {
+  final clock = now ?? DateTime.now();
+  return task.status == TaskStatus.done &&
+      isSameCalendarDay(task.updatedAt, clock);
+}
+
+/// Today's plan plus tasks completed today (even if removed from the today queue).
+List<Task> tasksForPerformanceDay(List<Task> allTasks, {DateTime? now}) {
+  final clock = now ?? DateTime.now();
+  final seen = <int>{};
+
+  return allTasks.where((task) {
+    if (!task.today && !taskCompletedToday(task, now: clock)) {
+      return false;
+    }
+    return seen.add(task.id);
+  }).toList();
 }
 
 bool _isInSameWeek(DateTime date, DateTime anchor) {

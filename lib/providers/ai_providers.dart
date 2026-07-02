@@ -18,12 +18,24 @@ class ExecutiveBriefNotifier
       : super(const AsyncValue.data(null));
 
   final AiService _aiService;
+  String? lastError;
 
   Future<void> fetchBrief(Map<String, dynamic> payload) async {
     state = const AsyncValue.loading();
-    final brief = await _aiService.fetchBrief(payload);
-    state = AsyncValue.data(brief);
+    lastError = null;
+
+    final result = await _aiService.fetchBrief(payload);
+    if (result.isSuccess) {
+      state = AsyncValue.data(result.brief);
+      return;
+    }
+
+    lastError = result.errorMessage;
+    state = const AsyncValue.data(null);
   }
 
-  void clear() => state = const AsyncValue.data(null);
+  void clear() {
+    lastError = null;
+    state = const AsyncValue.data(null);
+  }
 }

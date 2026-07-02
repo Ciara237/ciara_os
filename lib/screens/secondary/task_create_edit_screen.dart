@@ -159,8 +159,8 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
           domain: _selectedDomain,
           status: _selectedStatus,
           priority: _selectedPriority,
-          started: _started,
-          today: _todayFlag,
+          started: _selectedStatus == TaskStatus.done ? false : _started,
+          today: _selectedStatus == TaskStatus.done ? false : _todayFlag,
           deadline: _selectedDeadline,
           projectId: _selectedProjectId,
           notes: _notesController.text.trim().isEmpty

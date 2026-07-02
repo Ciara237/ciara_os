@@ -55,11 +55,12 @@ final todayPerformanceProvider =
     FutureProvider<TodayPerformanceSnapshot>((ref) async {
   ref.watch(focusSessionProvider);
   ref.watch(dailyStatsRevisionProvider);
-  final tasksAsync = ref.watch(todayTasksProvider);
-  final tasks = tasksAsync.value ?? const <Task>[];
+  final now = DateTime.now();
+  final allTasks = ref.watch(allTasksProvider).value ?? const <Task>[];
+  final dayTasks = tasksForPerformanceDay(allTasks, now: now);
 
   final completed =
-      tasks.where((task) => task.status == TaskStatus.done).length;
+      allTasks.where((task) => taskCompletedToday(task, now: now)).length;
   final persistedFocus = await DailyActivityStats.todayFocusSeconds();
   final session = ref.read(focusSessionProvider);
   final sessionFocus = session.isActive
@@ -74,7 +75,7 @@ final todayPerformanceProvider =
       .map((s) => focusQualityScore(s.focusQuality!).toDouble())
       .toList();
 
-  final accuracyValues = tasks
+  final accuracyValues = dayTasks
       .where((t) => t.planningAccuracy != null)
       .map((t) => t.planningAccuracy!)
       .toList();
@@ -86,7 +87,7 @@ final todayPerformanceProvider =
 
   return TodayPerformanceSnapshot(
     completedToday: completed,
-    totalToday: tasks.length,
+    totalToday: dayTasks.length,
     focusSeconds: persistedFocus + sessionFocus,
     dailyStreak: await DailyActivityStats.dailyStreak(),
     sessionCountToday: todaySessions.length +

@@ -1,24 +1,141 @@
 # Ciara OS — System & Screen Reference
 
-**Version:** 1.0.0 (local-only v1)  
-**Stack:** Flutter · Riverpod · GoRouter · Drift (SQLite) · SharedPreferences  
+**Version:** 1.0.0  
+**Flutter app:** local-first execution system (SQLite on device)  
+**Optional backend:** `ciara_os_backend/` — FastAPI + Groq for the Executive Brief  
+**Stack:** Flutter · Riverpod · GoRouter · Drift (SQLite) · SharedPreferences · `http` (AI client)  
 **Design source:** Stitch mockups (`stitch_ciara_os_execution_system/`)
-
-Ciara OS is a personal productivity and execution system. All data is stored locally on device. There is no backend, auth, or cloud sync in v1.
 
 ---
 
 ## Table of contents
 
-1. [Architecture](#architecture)
-2. [Navigation & routing](#navigation--routing)
-3. [Data model](#data-model)
-4. [Time & metrics](#time--metrics)
-5. [Shared UI](#shared-ui)
-6. [Primary screens](#primary-screens)
-7. [Secondary screens](#secondary-screens)
-8. [Enums & domains](#enums--domains)
-9. [Stubs & future work](#stubs--future-work)
+### Product (non-technical)
+1. [What Ciara OS is](#what-ciara-os-is)
+2. [Who it is for](#who-it-is-for)
+3. [Core concepts](#core-concepts)
+4. [Daily & weekly loops](#daily--weekly-loops)
+5. [Screen map at a glance](#screen-map-at-a-glance)
+
+### Technical
+6. [Architecture](#architecture)
+7. [Repositories & project layout](#repositories--project-layout)
+8. [Navigation & routing](#navigation--routing)
+9. [Data model](#data-model)
+10. [Time, tasks & metrics](#time-tasks--metrics)
+11. [AI layer (Executive Brief)](#ai-layer-executive-brief)
+12. [Shared UI & theming](#shared-ui--theming)
+13. [Primary screens](#primary-screens)
+14. [Secondary screens](#secondary-screens)
+15. [Enums & domains](#enums--domains)
+16. [Running & development](#running--development)
+17. [Stubs & future work](#stubs--future-work)
+18. [File index](#file-index)
+
+---
+
+## What Ciara OS is
+
+Ciara OS is a **personal execution system** — not a generic to-do list. It is built around how a techie actually works when juggling:
+
+- Deep technical work (engineering, security, CTF practice)
+- Active projects with next actions
+- A job/program application pipeline
+- Weekly reflection and course correction
+
+The app answers three questions every day:
+
+1. **What should I execute right now?** → Today queue + Deep Work Engine  
+2. **What is the strategic picture?** → Projects, Pipeline, Executive Brief (AI)  
+3. **Am I improving over time?** → Performance Snapshot, Executive Debrief (Review)
+
+**Privacy model:** All task, project, opportunity, focus-session, and review data lives **on your device** in SQLite. Nothing is uploaded unless you explicitly run the optional local AI backend and tap **Generate Today's Mission** — and even then, only a structured summary of your execution context is sent to Groq via your machine.
+
+---
+
+## Who it is for
+
+Designed for a single operator (you) building a career in **software engineering and cybersecurity** while:
+
+- Applying to jobs, internships, fellowships, and programs  
+- Shipping portfolio projects  
+- Practicing security skills  
+- Needing honest daily prioritization without motivational fluff  
+
+The AI Executive Agent is tuned for that profile: it cites real task names, pipeline deadlines, and postpone patterns — not generic productivity advice.
+
+---
+
+## Core concepts
+
+| Concept | Plain language | Technical flag / store |
+|---------|----------------|------------------------|
+| **Backlog** | Everything you might do | All tasks in SQLite |
+| **Today queue** | What you committed to execute today | `tasks.today == true` |
+| **Started** | You are actively working this task (focus session) | `tasks.started` + `focus_sessions` |
+| **Deep work** | Timed focus on one task toward a 45-min goal | `focus_sessions` rows |
+| **Done** | Task is complete | `tasks.status == done` |
+| **Project** | Multi-step outcome with a next action | `projects` table |
+| **Pipeline lead** | Job/program opportunity with stages & documents | `opportunities` table |
+| **Executive Brief** | AI morning mission from live context | Groq via local backend |
+| **Executive Debrief** | Weekly score, narrative, reflections | `weekly_reviews` + rule-based generators |
+
+### Today queue vs completion
+
+These are **independent** fields by design, with one automation:
+
+- **`today`** — “show on Today screen”  
+- **`status`** — lifecycle (`notStarted` → `inProgress` → `done`)
+
+When you **mark a task complete**, `Task.markedDone()` sets:
+
+- `status: done`  
+- `today: false` (removes from Today list)  
+- `started: false`  
+
+Completed work still counts in **Performance Snapshot** for the calendar day (see [Performance Snapshot](#performance-snapshot-today)).
+
+---
+
+## Daily & weekly loops
+
+```mermaid
+flowchart TD
+  subgraph daily [Daily loop — Today screen]
+    A[Open Today] --> B[Executive Brief optional]
+    B --> C[Today's Focus Plan]
+    C --> D[Deep Work on one task]
+    D --> E[Mark complete / pause]
+    E --> F[Performance Snapshot updates]
+  end
+
+  subgraph weekly [Weekly loop — Review screen]
+    G[Observe week metrics] --> H[Execution Score + Timeline]
+    H --> I[Reflect: well / slowed / improve]
+    I --> J[Finalize Debrief]
+    J --> K[Next week priorities]
+  end
+
+  daily --> weekly
+```
+
+**Daily:** Plan → Execute → Measure (same day).  
+**Weekly:** Observe → Measure → Understand → Reflect → Improve → Prepare.
+
+---
+
+## Screen map at a glance
+
+| Area | Route | One-line purpose |
+|------|-------|------------------|
+| Today | `/` | Execute today's plan |
+| Backlog | `/tasks` | Full task inventory |
+| Projects | `/projects` | Active workstreams |
+| Pipeline | `/opportunities` | Applications & leads |
+| Review | `/review` | Weekly Executive Debrief |
+| Profile | `/profile` | Identity, stats, tagline |
+| Settings | `/settings` | Theme, data, onboarding reset |
+| Task / Project / Opportunity detail & forms | `/tasks/*`, `/projects/*`, `/opportunities/*` | CRUD + deep work |
 
 ---
 
@@ -26,33 +143,64 @@ Ciara OS is a personal productivity and execution system. All data is stored loc
 
 ```
 lib/
-├── main.dart                 # App entry, onboarding bootstrap
-├── router/app_router.dart    # GoRouter routes + onboarding redirect
-├── database/                 # Drift schema (schema v6)
-├── models/                   # Domain types + enums
-├── repositories/             # CRUD + queries
-├── providers/                # Riverpod wiring
-├── services/                 # OnboardingNotifier, DailyActivityStats
+├── main.dart                      # App entry, onboarding bootstrap, theme
+├── router/app_router.dart         # GoRouter routes + onboarding redirect
+├── database/                      # Drift schema (v6), migrations
+├── models/                        # Domain types, enums, ExecutiveBrief
+├── repositories/                  # CRUD + queries (tasks, projects, …)
+├── providers/                     # Riverpod wiring (incl. ai_providers)
+├── services/                        # Stats, debrief generators, AI client
 ├── screens/
-│   ├── primary/              # Bottom-nav destinations
-│   └── secondary/            # Detail, create/edit, onboarding
-├── widgets/                  # Reusable UI by feature area
-└── theme/                    # Colors, typography, spacing, ThemeData
+│   ├── primary/                   # Bottom-nav destinations
+│   └── secondary/                 # Detail, create/edit, profile, settings
+├── widgets/                       # Feature UI by area (today/, deep_work/, …)
+├── utils/                           # Filters, grouping, review stats
+└── theme/                         # Colors, typography, spacing, ThemeData
 ```
 
 | Layer | Responsibility |
 |-------|----------------|
 | **Screens** | Route-level layout, orchestration |
 | **Widgets** | Feature UI components |
-| **Providers** | Reactive state, streams from DB |
+| **Providers** | Reactive state, streams from DB, AI session cache |
 | **Repositories** | Data access |
+| **Services** | Side effects, generators, HTTP to AI backend |
 | **Database** | SQLite via Drift, migrations |
 
-**State management:** `flutter_riverpod` — `StreamProvider` for live lists, `FutureProvider` for single records, `NotifierProvider` for the Deep Work Engine (`focusSessionProvider`) and navigation tab.
+**State management:** `flutter_riverpod`
+
+| Pattern | Used for |
+|---------|----------|
+| `StreamProvider` | Live lists (`allTasksProvider`, `todayTasksProvider`, …) |
+| `FutureProvider` | Single records, debrief build, performance snapshot |
+| `NotifierProvider` | Deep Work Engine (`focusSessionProvider`) |
+| `StateNotifierProvider` (legacy) | Executive Brief session cache (`executiveBriefProvider`) |
+| `StateProvider` | Filters, theme mode |
 
 **Persistence:**
-- **Drift** — tasks, projects, opportunities, weekly reviews
-- **SharedPreferences** — onboarding completion, daily focus seconds, streak counters
+
+| Store | Contents |
+|-------|----------|
+| **Drift (SQLite)** | Tasks, projects, opportunities, focus sessions, weekly reviews |
+| **SharedPreferences** | Onboarding, daily focus seconds, streak, theme, profile tagline, notification toggle |
+
+---
+
+## Repositories & project layout
+
+Ciara OS spans two repos on disk:
+
+```
+~/Documents/
+├── ciara_os/              # Flutter app (this repo)
+└── ciara_os_backend/      # FastAPI AI backend (sibling, optional)
+    ├── main.py
+    ├── requirements.txt
+    ├── .env.example       # GROQ_API_KEY=…
+    └── .env               # gitignored — never commit
+```
+
+The Flutter app runs fully offline. The backend is only required for the **Executive Brief** card on Today.
 
 ---
 
@@ -66,7 +214,7 @@ Until `onboarding_complete` is set in SharedPreferences, all routes redirect to 
 
 Five bottom-nav tabs inside `PrimaryShellScaffold` + `PrimaryNavBar`.
 
-On first shell mount, if an interrupted `focus_sessions` row exists (`endedAt IS NULL`), `PrimaryShellScaffold` shows **Session Recovery** — Resume (restart ticker) or Discard (delete session row).
+On first shell mount, if an interrupted `focus_sessions` row exists (`endedAt IS NULL`), **Session Recovery** offers Resume or Discard.
 
 | Tab | Route | Screen |
 |-----|-------|--------|
@@ -81,6 +229,8 @@ On first shell mount, if an interrupted `focus_sessions` row exists (`endedAt IS
 | Route | Screen |
 |-------|--------|
 | `/onboarding` | `OnboardingScreen` |
+| `/profile` | `ProfileScreen` |
+| `/settings` | `SettingsScreen` |
 | `/tasks/new` | `TaskCreateEditScreen` (create) |
 | `/tasks/:id` | `TaskDetailScreen` |
 | `/tasks/:id/edit` | `TaskCreateEditScreen` (edit) |
@@ -92,7 +242,10 @@ On first shell mount, if an interrupted `focus_sessions` row exists (`endedAt IS
 | `/opportunities/:id/edit` | `OpportunityCreateEditScreen` (edit) |
 
 **Query parameters:**
+
 - `/tasks/new?projectId=…&title=…` — pre-fill project link and title
+
+**Header chrome:** `TodayHeader` on primary screens — settings icon → `/settings`, avatar → `/profile`.
 
 ---
 
@@ -115,16 +268,18 @@ On first shell mount, if an interrupted `focus_sessions` row exists (`endedAt IS
 | `projectId` | int? | FK → projects |
 | `notes` | text? | Execution notes |
 | `postponeCount` | int | Deferral counter |
-| `estimatedDurationMinutes` | int? | Planning estimate for deep work (default UI: 45m) |
+| `estimatedDurationMinutes` | int? | Planning estimate (default UI: 45m) |
 | `totalFocusedSeconds` | int | Sum of completed session durations |
 | `focusSessionCount` | int | Completed session count |
-| `planningAccuracy` | real? | 0–100 score set on task completion |
-| `lastFocusSessionAt` | DateTime? | Timestamp of last completed session |
+| `planningAccuracy` | real? | 0–100, set on task completion |
+| `lastFocusSessionAt` | DateTime? | Last completed session |
 | `createdAt` / `updatedAt` | DateTime | Audit timestamps |
+
+**Completion helper:** `Task.markedDone()` → `done` + `today: false` + `started: false`.
 
 ### Focus sessions (`focus_sessions`)
 
-Each row is one deep work session bound to exactly one task. Only one row may have `endedAt IS NULL` at a time (the recoverable active session).
+Each row is one deep work session bound to exactly one task. Only one row may have `endedAt IS NULL` at a time.
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -132,9 +287,9 @@ Each row is one deep work session bound to exactly one task. Only one row may ha
 | `taskId` | int | FK → tasks |
 | `startedAt` | DateTime | Session start |
 | `endedAt` | DateTime? | Null while active |
-| `durationSeconds` | int | Final duration (set on complete) |
+| `durationSeconds` | int | Final duration on complete |
 | `focusQuality` | text? | `deepFocus` · `good` · `okay` · `distracted` |
-| `goalReached` | bool | True if duration ≥ 45 minutes |
+| `goalReached` | bool | Duration ≥ 45 minutes |
 | `pausedElapsedSeconds` | int | Checkpointed elapsed time |
 | `segmentStartedAt` | DateTime? | Non-null when clock is running |
 | `createdAt` / `updatedAt` | DateTime | |
@@ -160,12 +315,12 @@ Each row is one deep work session bound to exactly one task. Only one row may ha
 | `id` | int | PK |
 | `title` | text | Required |
 | `organization` | text | Required |
-| `location` | text | Required (schema v3) |
+| `location` | text | Required |
 | `type` | text | `OpportunityType` |
 | `status` | text | Pipeline stage |
 | `deadline` | DateTime? | Application due date |
 | `fitNotes` | text? | Strategic fit notes |
-| `documents` | text? | JSON list of doc checklist items |
+| `documents` | text? | JSON checklist items |
 | `documentsTotal` / `documentsReady` | int | Checklist progress |
 | `link` | text? | Application URL or email |
 | `leadQuality` | int? | 1–3 rating |
@@ -177,15 +332,11 @@ Each row is one deep work session bound to exactly one task. Only one row may ha
 |-------|------|-------|
 | `id` | int | PK |
 | `weekOf` | DateTime | Monday of review week |
-| `whatWorked` | text? | What went well |
-| `whatFailed` | text? | What slowed you down (legacy column name) |
-| `improvementForNextWeek` | text? | One improvement for next week |
-| `nextActions` | text? | JSON list of next-week priorities |
-| `startedRate` / `focusScore` | real? | Legacy snapshot fields |
-| `executionScore` | real? | Encapsulated score at finalize |
-| `weeklyNarrative` | text? | Generated executive paragraph |
-| `insightsJson` | text? | Snapshot of deterministic insights |
-| `totalTasks` / `startedTasks` | int | Week stats snapshot |
+| `whatWorked` / `whatFailed` / `improvementForNextWeek` | text? | Reflection fields |
+| `nextActions` | text? | JSON next-week priorities |
+| `executionScore` | real? | Weighted score at finalize |
+| `weeklyNarrative` | text? | Generated paragraph |
+| `insightsJson` | text? | Deterministic insights snapshot |
 | `locked` | bool | Finalized debrief |
 | `createdAt` / `updatedAt` | DateTime | |
 
@@ -195,84 +346,192 @@ Each row is one deep work session bound to exactly one task. Only one row may ha
 |---------|--------|
 | v2 | `opportunities.leadQuality` |
 | v3 | `opportunities.location` |
-| v4 | `projects.timeAllocationDays` (existing rows → 30) |
+| v4 | `projects.timeAllocationDays` |
 | v5 | `focus_sessions` table; task deep work columns |
-| v6 | `weekly_reviews`: `improvementForNextWeek`, `executionScore`, `weeklyNarrative`, `insightsJson` |
+| v6 | Weekly review debrief fields |
 
 ---
 
-## Time & metrics
+## Time, tasks & metrics
 
-Ciara OS tracks **execution quality**, not just elapsed time. Every focus session belongs to exactly one task — there is no standalone timer.
+Ciara OS tracks **execution quality**, not just elapsed time.
 
 | Concept | Unit | Persisted? | Where used |
 |---------|------|------------|------------|
-| **Focus session** | Seconds | Yes (`focus_sessions`) | Deep Work card, task detail, AI-ready history |
-| **45-min Deep Work Goal** | Seconds | Reference only | Progress ring/bar; timer continues past goal |
-| **`started` flag** | Boolean | Yes | Task rows; synced by Deep Work Engine |
-| **`today` flag** | Boolean | Yes | Today queue membership |
-| **Estimated duration** | Minutes | Yes (task) | Session planning, planning accuracy |
-| **Planning accuracy** | 0–100 | Yes (task, on complete) | Task detail, Performance Snapshot |
-| **Focus quality** | Enum | Yes (per session) | End-session dialog, daily averages |
-| **Task deadline** | Calendar date | Yes | Task detail, backlog badges, filters |
-| **Project time allocation** | Days | Yes | Project create/edit, detail, milestone math |
-| **Focus uptime (daily)** | Seconds | Yes (SharedPreferences) | Performance Snapshot |
-| **Daily streak** | Days | Yes (SharedPreferences) | Performance Snapshot |
-| **Weekly started-rate** | % | Computed | Review aggregate efficiency |
+| Focus session | Seconds | Yes | Deep Work card, task detail, AI context |
+| 45-min Deep Work Goal | Seconds | Reference | Progress ring; timer continues past goal |
+| `started` flag | Boolean | Yes | Task rows; Deep Work Engine |
+| `today` flag | Boolean | Yes | Today queue (cleared on complete) |
+| Estimated duration | Minutes | Yes | Session planning, planning accuracy |
+| Planning accuracy | 0–100 | Yes | Task detail, Performance Snapshot |
+| Focus quality | Enum | Yes | End-session dialog, daily averages |
+| Task deadline | Calendar date | Yes | Badges, filters |
+| Project time allocation | Days | Yes | Milestone math |
+| Focus uptime (daily) | Seconds | SharedPreferences | Performance Snapshot |
+| Daily streak | Days | SharedPreferences | Performance Snapshot |
+| Weekly started-rate | % | Computed | Review aggregate |
 
 ### Deep Work Engine
 
-**Provider:** `focusSessionProvider` (`DeepWorkEngineNotifier` + `ActiveDeepWorkState`)
-
-**Repository:** `FocusSessionRepository` — CRUD on `focus_sessions`, start/pause/resume/complete/discard, daily session queries.
+**Provider:** `focusSessionProvider` (`DeepWorkEngineNotifier`)
 
 **Rules:**
-- One globally active session at a time (`endedAt IS NULL`)
-- Starting a session for a task creates a `focus_sessions` row and sets `task.started = true`
-- Pause checkpoints elapsed time, flushes unflushed seconds to daily stats, sets `task.started = false`
-- End session (required focus quality) completes the row, updates task aggregates (`totalFocusedSeconds`, `focusSessionCount`, `lastFocusSessionAt`), clears active state
-- Progress toward the 45-minute goal is visual only — the clock keeps running after the goal
-- Every 15s while running, elapsed time is checkpointed to SQLite for crash recovery
-- On app launch, active session is hydrated but the ticker does not start until the user chooses **Resume** in the recovery dialog
 
-**End session flow:** `showEndSessionDialog` — required rating: Deep Focus · Good · Okay · Distracted.
+- One globally active session (`endedAt IS NULL`)
+- Start → `focus_sessions` row + `task.started = true`
+- Pause → checkpoint elapsed, flush daily stats, `task.started = false`
+- End → quality rating required; updates task aggregates; clears active state
+- Progress toward 45 min is visual only — clock keeps running
+- Checkpoint every 15s to SQLite for crash recovery
+- App launch → recovery dialog if orphaned session exists
 
-**Planning accuracy** (`computePlanningAccuracy` in `deep_work_utils.dart`): on task completion, compares `estimatedDurationMinutes` vs `totalFocusedSeconds`. Score 100 = perfect estimate. Stored on the task as `planningAccuracy`.
+**Planning accuracy** (`computePlanningAccuracy`): on complete, compares estimate vs actual focused time → 0–100 score.
 
-**Session numbering:** `plannedSessionCount` = ceil(estimate ÷ 45); current session = `focusSessionCount + 1` while active.
+### Performance Snapshot (Today)
 
-**Performance Snapshot (Today)** — `todayPerformanceProvider`:
-- *Completed today* — `done` ÷ total in today queue
-- *Deep work today* — persisted daily seconds + unflushed active session time
-- *Sessions* — completed sessions today (+ active if any)
-- *Avg quality* — mean of today's completed session quality scores
-- *Planning accuracy* — mean of today-queue tasks with a score
-- *Daily streak* — consecutive days with focus activity or completion
+**Provider:** `todayPerformanceProvider`  
+**UI:** `PerformanceSnapshotCard` in `TodaySidebar`
 
-**Project remaining days:** `timeAllocationDays − days since createdAt` (calendar days).
+| Tile | Logic |
+|------|-------|
+| **Completed** | `completedToday / totalToday` — see below |
+| **Deep work** | Persisted daily seconds + unflushed active session |
+| **Sessions** | Completed sessions today (+ active if any) |
+| **Focus quality** | Mean quality score of today's sessions |
+| **Accuracy** | Mean `planningAccuracy` of day's task set |
+| **Streak** | Consecutive active days |
+
+**Day task set** (`tasksForPerformanceDay` in `task_filter_utils.dart`):
+
+- **Total:** tasks with `today == true` **OR** completed today (`status == done` and `updatedAt` on today's calendar date)  
+- **Completed count:** all tasks completed today (even if removed from today queue)
+
+This keeps `2/3` correct after marking tasks done (they leave the list but still count for the day).
 
 ---
 
-## Shared UI
+## AI layer (Executive Brief)
+
+### Overview
+
+The **Executive Brief** is a morning AI card on the Today screen. It sends a structured snapshot of your execution context to a local FastAPI backend, which calls **Groq** (`llama-3.3-70b-versatile`) and returns a focused mission — not motivational fluff.
+
+**User flow:**
+
+1. Open Today → see **Executive Brief** above **TODAY'S FOCUS PLAN**  
+2. Tap **⚡ Generate Today's Mission** (or refresh when loaded)  
+3. Card shows greeting, mission, risk, recommendation, priority score, expected outcome  
+4. Collapse after reading — stays collapsed on return visits (session cache)  
+5. On failure → specific error (connection vs invalid API key vs AI parse error)
+
+### Flutter components
+
+| File | Role |
+|------|------|
+| `widgets/today/executive_brief_card.dart` | UI: empty / loading / loaded / error / collapsed |
+| `services/ai_context_builder.dart` | Builds JSON payload from local providers |
+| `services/ai_service.dart` | HTTP client, `AiFetchResult` error mapping |
+| `models/executive_brief.dart` | Typed response (`ExecutiveBrief`, mission, risk) |
+| `providers/ai_providers.dart` | `aiServiceProvider`, `executiveBriefProvider` |
+
+**Context payload** (`AiContextBuilder.build`):
+
+| Key | Source |
+|-----|--------|
+| `date` | Today (ISO `yyyy-MM-dd`) |
+| `tasks_today` | `todayTasksProvider` |
+| `this_week` | `weekTasksProvider(monday)` — started rate, completed/total, focused hours |
+| `active_projects` | `allProjectsProvider` (status `active`) + pending linked tasks |
+| `opportunities_due_this_week` | Deadlines within 7 days |
+| `patterns` | Most postponed task across `allTasksProvider` |
+
+**Backend URL:** `AiServiceConfig.baseUrl` — default `http://localhost:8001`. Override:
+
+```bash
+flutter run --dart-define=CIARA_AI_BACKEND_URL=http://localhost:8001
+```
+
+**Session cache:** `executiveBriefProvider` holds the brief for the app session; re-fetch on explicit refresh or new generate.
+
+### Python backend (`ciara_os_backend/`)
+
+```
+ciara_os_backend/
+├── main.py           # FastAPI app
+├── requirements.txt  # fastapi, uvicorn, groq, python-dotenv, pydantic
+├── .env.example
+├── .env              # GROQ_API_KEY — gitignored
+└── README.md
+```
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | `{"status": "ok"}` |
+| POST | `/api/brief` | Executive Brief from JSON context |
+
+**Environment:** `GROQ_API_KEY` in `.env`. Restart uvicorn after changing `.env` (reload does not refresh env).
+
+**Run:**
+
+```bash
+cd ciara_os_backend
+source venv/bin/activate
+uvicorn main:app --reload --port 8001
+```
+
+**Response shape (Groq JSON):**
+
+```json
+{
+  "greeting": "string",
+  "mission": { "title", "reason", "estimated_minutes" },
+  "risk": { "present": bool, "description": "string|null" },
+  "recommendation": "string",
+  "priority_score": 0-100,
+  "expected_outcome": "string"
+}
+```
+
+**Errors:** 502 if Groq fails or JSON invalid; Flutter maps these to user-visible messages (invalid API key, backend down, parse failure).
+
+### AI vs rule-based Review
+
+| Feature | Engine | When |
+|---------|--------|------|
+| Executive Brief | Groq LLM | Daily, on demand |
+| Execution Score | `ExecutionScoreCalculator` | Weekly Review |
+| Timeline quality | `ExecutionTimelineGenerator` | Weekly Review |
+| Insights | `InsightGenerator` | Weekly Review |
+| Weekly narrative | `WeeklyNarrativeGenerator` | Weekly Review |
+
+Review generators remain deterministic and swappable; the Brief is the first live LLM integration.
+
+---
+
+## Shared UI & theming
 
 ### `TodayHeader`
 
-Used on all primary screens and as the app chrome pattern.
-
-- Height: 56px (`AppSpacing.appBarHeight`)
-- Left: terminal icon + **Ciara OS** (JetBrains Mono)
-- Right: notifications icon (non-functional) + **CM** avatar (hardcoded)
+- Height 56px; terminal icon + **Ciara OS** (JetBrains Mono)  
+- Settings → `/settings`  
+- Avatar **CM** → `/profile`  
+- Notifications icon — non-functional placeholder  
 
 ### `EmptyState`
 
-Variants: `compact`, `tasks`, `pipeline`, `projects` — used across list screens when no data or errors.
+Variants: `compact`, `tasks`, `pipeline`, `projects` — used when lists are empty or errored.
 
 ### Design tokens
 
-- **Typography:** Inter (body/headings) + JetBrains Mono (labels/code)
-- **Theme:** Dark mode default; light theme available
-- **Domains:** color via `context.domainColor(Domain)` theme extension
-- **Max content width:** 1200px (`AppSpacing.containerMax`)
+| Token | Value |
+|-------|-------|
+| Typography | Inter (body/headings) + JetBrains Mono (labels) |
+| Theme | Dark default; light via Settings |
+| Domains | `context.domainColor(Domain)` via `CiaraDomainColors` |
+| Max width | 1200px (`AppSpacing.containerMax`) |
+| Task left bar | 4px (`AppSpacing.taskBorderWidth`) — domain color on tasks, primary on AI brief |
+
+**Web note:** `AppTypography.textTheme` applies `TextDecoration.none` globally to prevent browser link underlines inside tappable widgets. Tappable `Text` in detail screens also sets explicit `decoration: none`.
 
 ---
 
@@ -280,157 +539,79 @@ Variants: `compact`, `tasks`, `pipeline`, `projects` — used across list screen
 
 ### 1. Today — `/`
 
-**Purpose:** Daily execution view — the screen users open every day.
+**Purpose:** Daily execution — the screen you open every morning.
 
-**Layout (Stitch-aligned):**
+**Layout:**
+
 ```
 TodayHeader
-└─ ScrollView (max-width 1200, padding 40px)
-   ├─ TodayScreenLabel      ("EXECUTION VIEW" / Today / date)
-   ├─ TodayActionRow        Filter + New Task
-   └─ [wide ≥1024px] 8/4 grid | [narrow] stacked
-      ├─ TodayTaskListSection   (main, 8 cols)
-      └─ TodaySidebar           (4 cols)
+└─ ScrollView (max-width 1200)
+   ├─ TodayScreenLabel       "EXECUTION VIEW" / Today / date
+   ├─ TodayActionRow         Filter + New Task
+   ├─ ExecutiveBriefCard     AI morning brief (optional)
+   ├─ "TODAY'S FOCUS PLAN"   section label
+   └─ [wide ≥1024px] 8/4 | [narrow] stacked
+      ├─ TodayTaskListSection
+      └─ TodaySidebar
 ```
 
-**TodayScreenLabel**
-- Overline: `EXECUTION VIEW` (primary color)
-- Title: **Today** (`displayLarge`)
-- Subtitle: full formatted date
+**ExecutiveBriefCard states:**
 
-**TodayActionRow**
-- **Filter** — opens `showTodayFilterSheet` (domain, deadline, status); uses today-specific filter providers
-- **New Task** — navigates to `/tasks/new`
+| State | UI |
+|-------|-----|
+| Not loaded | Label + **Generate Today's Mission** |
+| Loading | Spinner + "Analyzing your execution context…" |
+| Loaded | Full brief; refresh + collapse |
+| Collapsed | Label + mission title one line + expand |
+| Error | Specific message + RETRY |
 
 **TodayTaskListSection**
-- Data: `filteredTodayTasksProvider` (today queue + filters)
-- Grouped by domain: Engineering → Security → Opportunities → Builder → Other
-- Each group: domain dot + uppercase label + `TodayTaskRow` per task
-- **Started toggle** — delegates to `focusSessionProvider` (start / pause / resume)
-- Row subtitle shows `Est: … · Act: …` focused time when estimate or actual exists
-- Tap row → `/tasks/:id`
-- Empty states:
-  - No today tasks → "Your day is clear." + Review Backlog
-  - Filters match nothing → Clear filters
+
+- Data: `filteredTodayTasksProvider` (`today == true` + filters)  
+- Grouped by domain  
+- Started toggle → `focusSessionProvider`  
+- Tap → task detail  
 
 **TodaySidebar**
-1. **DeepWorkCard** — active deep work UI (Stitch `today_ciara_os_final_updated_dark`): task title, session N of M, circular progress toward 45-min goal, focused time, streak, goal-achieved animation; pause/end controls. Idle state prompts task selection.
-2. **PerformanceSnapshotCard** — 2×3 grid: completed today, deep work today, sessions, avg quality, planning accuracy, daily streak
-3. **BuilderModeCard** — lists builder-domain tasks in today queue, or empty guidance
+
+1. `DeepWorkCard` — active session UI  
+2. `PerformanceSnapshotCard` — 2×3 metrics grid  
+3. `BuilderModeCard` — builder-domain today tasks  
 
 ---
 
-### 2. Backlog (Tasks) — `/tasks`
+### 2. Backlog — `/tasks`
 
-**Purpose:** Full task inventory with filtering and quick capture.
-
-**Layout:**
-```
-TodayHeader
-└─ Column
-   ├─ ListView
-   │  ├─ TasksScreenLabel
-   │  ├─ TasksFilterBar      (DOMAIN / DEADLINE / STATUS chips)
-   │  └─ TasksBacklogListSection
-   └─ TasksQuickAddBar       (pinned bottom — tap → /tasks/new)
-```
-
-**TasksFilterBar**
-- Opens bottom sheets: domain, deadline (today/week/month), status
-- Uses shared `domainFilterProvider`, `deadlineFilterProvider`, `statusFilterProvider`
-
-**TasksBacklogListSection**
-- Data: `filteredTasksProvider` (all tasks + filters)
-- `TaskListTile` with checkbox, domain bar, deadline badge, started toggle
-- Long-press → quick actions sheet (status change, today toggle, delete)
-- Empty/filtered states via `EmptyState`
+Full task inventory, filters, quick-add bar. Checkbox marks done via `Task.markedDone()` (clears today flag).
 
 ---
 
 ### 3. Projects — `/projects`
 
-**Purpose:** Domain project registry and entry point to project detail.
-
-**Layout:**
-```
-TodayHeader
-└─ ListView
-   ├─ ProjectsScreenLabel
-   ├─ "+ NEW PROJECT" button → /projects/new
-   ├─ ProjectCard list (or empty state)
-   └─ "INITIATE NEW DOMAIN" CTA
-```
-
-**ProjectCard**
-- Name, domain color, status dot, next action preview
-- Tap → `/projects/:id`
-
-**Empty state:** hero visual + "INITIALIZE PROJECT" CTA
+Project registry → detail with linked tasks, next action, external link, time allocation.
 
 ---
 
-### 4. Pipeline (Opportunities) — `/opportunities`
+### 4. Pipeline — `/opportunities`
 
-**Purpose:** Job/program application pipeline by stage.
+Application pipeline by stage. `OpportunityCard` uses `IntrinsicHeight` for list layout. Documents checklist uses `Material` wrapper for web ink splash.
 
-**Layout:**
-```
-TodayHeader
-└─ ListView
-   ├─ Screen label (active count + stage count)
-   └─ Grouped opportunity cards by status
-FloatingActionButton → /opportunities/new
-```
-
-**Pipeline stages (in order):**
-Researching → Applying → Submitted → Interviewing → Offer → Rejected → Closed
-
-- Active stages always expanded
-- Rejected / Closed collapsible
-- **OpportunityCard** — type tag, org, location, deadline urgency, doc progress
-- Long-press → quick actions (advance stage, edit, delete)
-
-**Empty state:** "Pipeline Clear" + LOG FIRST LEAD
+**Stages:** Researching → Applying → Submitted → Interviewing → Offer → Rejected → Closed
 
 ---
 
 ### 5. Review — `/review`
 
-**Purpose:** Executive Debrief — closes the Ciara OS execution loop. Sequence: Observe → Measure → Understand → Reflect → Improve → Prepare.
+**Executive Debrief** — weekly loop closure.
 
-**Layout (Stitch Executive Debrief):**
-```
-TodayHeader
-└─ ListView (max-width 1200)
-   ├─ ReviewScreenHeader ("Executive Debrief")
-   ├─ ExecutionSummaryCard (score + 6 metrics)
-   ├─ ExecutionTimeline (Mon–Sun quality bars)
-   ├─ WeeklyNarrativeCard (auto-generated paragraph)
-   └─ [wide ≥1024px] 8/4 grid | [narrow] stacked
-      ├─ ReflectionCard × 3 (what went well, what slowed, improvement)
-      └─ ExecutionInsightsPanel + Next Week Priorities checklist
-```
-
-**Execution Score** (`ExecutionScoreCalculator`): weighted blend of task completion (25%), deep work consistency (25%), planning accuracy (20%), focus quality (20%), streak consistency (10%). Formula is encapsulated for future evolution.
-
-**Execution Timeline** (`ExecutionTimelineGenerator`): rule-based daily quality — Strong / Moderate / Weak / Review — from completed tasks, focus seconds, and session count per day. UI consumes `ExecutionTimelineDay` models; logic is swappable for AI.
-
-**Execution Insights** (`InsightGenerator`): 3–5 deterministic insights (title, description, recommendation). Examples: high planning accuracy, context switching, morning productivity, longest session, improved execution.
-
-**Weekly Narrative** (`WeeklyNarrativeGenerator`): template paragraph from week metrics and top insight. Stored on finalize.
-
-**Next Week Priorities**: renamed from Immediate Actions; prepopulated from incomplete today/high-priority tasks and active project next actions (`WeeklyReviewService.suggestPriorities`).
-
-**Reflection fields (3):**
-- What went well
-- What slowed you down
-- One improvement for next week
-
-**Finalize Review** — persists `WeeklyReview` with execution score, narrative, insights snapshot, and reflections. Requires at least one reflection field.
+- Execution Score (weighted formula)  
+- Timeline (Mon–Sun quality bars)  
+- Weekly narrative + insights  
+- Reflection cards × 3  
+- Next week priorities  
+- Finalize → locked `WeeklyReview`  
 
 **Provider:** `weeklyDebriefProvider` → `WeeklyReviewService.buildDebrief()`
-
-**Future AI extension points:** `ExecutionScoreCalculator`, `ExecutionTimelineGenerator`, `InsightGenerator`, `WeeklyNarrativeGenerator` — each is a standalone service the AI layer can replace or augment without UI changes.
 
 ---
 
@@ -438,125 +619,34 @@ TodayHeader
 
 ### Onboarding — `/onboarding`
 
-**Purpose:** First-launch intro; 4-step `PageView`.
+4-step `PageView`: welcome → domains → started habit demo → system ready.  
+`OnboardingNotifier.markComplete()` → SharedPreferences.
 
-| Step | Content | Actions |
-|------|---------|---------|
-| 0 | Welcome | Skip Intro → Today · Next Step |
-| 1 | Domains protocol | Acknowledge Protocol |
-| 2 | Started habit demo | Initialize System |
-| 3 | System ready | Create first task → `/tasks/new` · Enter Dashboard → `/` |
+### Profile — `/profile`
 
-Completing any exit path calls `OnboardingNotifier.markComplete()`.
+Identity card (tagline editable), domain breakdown, week stats, GitHub link, theme-aware styling.
 
----
+### Settings — `/settings`
+
+| Section | Features |
+|---------|----------|
+| Appearance | Light / Dark / System |
+| Notifications | Toggle (stub — "coming in future update") |
+| Data | Export stub, **Delete all data** (typed confirm) |
+| About | Version, GitHub |
+| Developer | Reset onboarding |
 
 ### Task detail — `/tasks/:id`
 
-**Purpose:** Modal-style execution card for a single task (Stitch task detail).
+Modal-style card: status, Deep Work section, deadline, parent project, notes, metadata, Today toggle, Pause + **Mark Complete** (`markedDone()`).
 
-**Structure:**
-```
-Dot grid background
-└─ Centered card (max 672px)
-   ├─ Domain color top bar
-   ├─ Header: domain chip + project ref chip | edit + close
-   ├─ Title
-   ├─ Body grid (wide: 2 columns)
-   │  ├─ Current status (pulsing dot if in progress)
-   │  ├─ DEEP WORK (`DeepWorkSection` — estimate, total focused, sessions, last session, planning accuracy; tap start/pause/end)
-   │  ├─ Deadline (if set)
-   │  └─ Parent project link (if linked)
-   ├─ Execution notes (inline edit)
-   ├─ Metadata: priority, created, last modified, postponed count
-   ├─ Add/remove from Today
-   └─ Footer: Pause Task + Mark Complete
-```
+### Task create / edit
 
-**Interactions:**
-- Deep Work Engine shared with Today via `focusSessionProvider`
-- End session requires focus quality rating (`showEndSessionDialog`)
-- Mark complete → end session if active, set `done`, compute `planningAccuracy`, record active day for streak
-- Delete with confirmation dialog
+Title, domain, priority, status (edit), estimate, deadline, project, today flag, notes. Saving with status `done` forces `today: false`.
 
----
+### Project & Opportunity detail / forms
 
-### Task create / edit — `/tasks/new`, `/tasks/:id/edit`
-
-**Fields:**
-- Title (required)
-- Domain (chip selector)
-- Priority (LOW → CRITICAL)
-- Status (edit only)
-- Estimated duration in minutes (optional; powers session planning)
-- Deadline (optional date picker)
-- Project (dropdown — active/paused/shipped; archived only if already linked)
-- Today flag
-- Notes
-
-On edit, deep work aggregates (`totalFocusedSeconds`, `focusSessionCount`, `planningAccuracy`, `lastFocusSessionAt`) are preserved.
-
-Edit mode populates from `taskByIdProvider` synchronously when cached.
-
----
-
-### Project detail — `/projects/:id`
-
-**Purpose:** Project command center.
-
-**Sections:**
-- Identity: domain, name, status, description excerpt
-- **OPEN PROJECT ↗** (external link) or disabled state
-- Next action card (inline edit)
-- Linked tasks list (tap → task detail; + Add Task)
-- Description card (if present)
-- Metadata: created, last modified, time allocation, time remaining, domain
-- Danger zone: Archive · Delete
-
----
-
-### Project create / edit — `/projects/new`, `/projects/:id/edit`
-
-**Fields:**
-- Name (required)
-- Domain
-- Status
-- Time allocation in days (required, > 0)
-- Next action
-- External link (`http://` or `https://`)
-- Description
-
----
-
-### Opportunity detail — `/opportunities/:id`
-
-**Purpose:** Pipeline item deep dive.
-
-**Sections:**
-- Header with back + edit
-- Type tag + deadline urgency display
-- Title, organization, location
-- Pipeline stepper (tap stages / advance)
-- Application link (URL or `mailto:`)
-- Lead quality rating (1–3)
-- Documents checklist (toggle completion)
-- Fit notes (inline edit)
-- Metadata section
-- Move to next stage · Delete
-
----
-
-### Opportunity create / edit — `/opportunities/new`, `/opportunities/:id/edit`
-
-**Fields:**
-- Title, organization, location (required)
-- Type (JOB, INTERNSHIP, FELLOWSHIP, PROGRAM, MASTERS)
-- Status / pipeline stage
-- Deadline
-- Application link (http/https, mailto, or plain email)
-- Lead quality
-- Document checklist (add/remove items)
-- Fit notes
+As documented in prior sections — pipeline stepper, documents checklist, fit notes, lead quality, linked tasks.
 
 ---
 
@@ -564,15 +654,13 @@ Edit mode populates from `taskByIdProvider` synchronously when cached.
 
 ### Domain
 
-| Value | Label | Typical use |
-|-------|-------|-------------|
-| `engineering` | ENGINEERING | Technical work |
-| `security` | SECURITY | Security ops |
-| `opportunities` | OPPORTUNITIES | Career/pipeline tasks |
-| `builder` | BUILDER | Creative/build work |
-| `other` | OTHER | Miscellaneous |
-
-Each domain has a distinct accent color in `AppColors` / `CiaraDomainColors`.
+| Value | Label |
+|-------|-------|
+| `engineering` | ENGINEERING |
+| `security` | SECURITY |
+| `opportunities` | OPPORTUNITIES |
+| `builder` | BUILDER |
+| `other` | OTHER |
 
 ### Task status
 
@@ -586,7 +674,7 @@ Each domain has a distinct accent color in `AppColors` / `CiaraDomainColors`.
 
 `active` · `paused` · `shipped` · `archived`
 
-### Opportunity status (pipeline)
+### Opportunity status
 
 `researching` · `applying` · `submitted` · `interviewing` · `offer` · `rejected` · `closed`
 
@@ -596,34 +684,68 @@ Each domain has a distinct accent color in `AppColors` / `CiaraDomainColors`.
 
 ---
 
+## Running & development
+
+### Flutter app
+
+```bash
+cd ciara_os
+flutter pub get
+flutter run
+# Linux desktop or Chrome web
+```
+
+After schema migration bump: **full restart** (not hot reload).
+
+**With AI backend:**
+
+```bash
+# Terminal 1 — backend
+cd ciara_os_backend && source venv/bin/activate
+uvicorn main:app --reload --port 8001
+
+# Terminal 2 — app
+cd ciara_os
+flutter run --dart-define=CIARA_AI_BACKEND_URL=http://localhost:8001
+```
+
+### Backend only
+
+```bash
+cd ciara_os_backend
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # add GROQ_API_KEY
+uvicorn main:app --reload --port 8001
+curl http://localhost:8001/health
+```
+
+### Platforms tested
+
+Linux desktop, Chrome web.
+
+### Git branches (feature work)
+
+Executive Brief + AI client: `feature/ai-executive-brief`
+
+---
+
 ## Stubs & future work
 
 | Feature | Current state |
 |---------|---------------|
 | Export Report (Review) | Snackbar stub |
-| Notifications bell | Non-functional |
-| Profile avatar "CM" | Hardcoded |
-| Productivity Index | Removed; replaced by Performance Snapshot |
-| AI Intelligence Layer | Future; deep work session history designed for estimation, quality, and abandonment queries |
-| Cloud sync / auth | Not in v1 |
-| Profile / Settings screens | Not implemented |
+| Notifications | Toggle saved; no delivery |
+| Cloud sync / auth | Not planned for v1 |
+| Executive Brief | **Live** — requires local backend + Groq key |
+| More AI endpoints | Backend flat structure ready to extend |
+| `Productivity Index` | Removed; replaced by Performance Snapshot |
 
 ---
 
-## Running & migrations
+## File index
 
-```bash
-flutter pub get
-flutter run
-```
-
-After a schema migration bump, do a **full restart** (not just hot reload) so Drift migrations apply.
-
-**Platforms tested:** Linux desktop, Chrome web.
-
----
-
-## File index (screens)
+### Screens
 
 | File | Route(s) |
 |------|----------|
@@ -633,6 +755,8 @@ After a schema migration bump, do a **full restart** (not just hot reload) so Dr
 | `screens/primary/opportunities_screen.dart` | `/opportunities` |
 | `screens/primary/review_screen.dart` | `/review` |
 | `screens/secondary/onboarding_screen.dart` | `/onboarding` |
+| `screens/secondary/profile_screen.dart` | `/profile` |
+| `screens/secondary/settings_screen.dart` | `/settings` |
 | `screens/secondary/task_detail_screen.dart` | `/tasks/:id` |
 | `screens/secondary/task_create_edit_screen.dart` | `/tasks/new`, `/tasks/:id/edit` |
 | `screens/secondary/project_detail_screen.dart` | `/projects/:id` |
@@ -640,48 +764,51 @@ After a schema migration bump, do a **full restart** (not just hot reload) so Dr
 | `screens/secondary/opportunity_detail_screen.dart` | `/opportunities/:id` |
 | `screens/secondary/opportunity_create_edit_screen.dart` | `/opportunities/new`, `/opportunities/:id/edit` |
 
-### Deep Work widgets (`lib/widgets/deep_work/`)
+### Today widgets
 
 | File | Role |
 |------|------|
-| `deep_work_card.dart` | Today sidebar active-session card |
-| `deep_work_section.dart` | Task detail deep work block |
-| `end_session_dialog.dart` | Required quality rating on session end |
-| `session_recovery_dialog.dart` | Resume / discard after unexpected close |
+| `executive_brief_card.dart` | AI morning brief card |
+| `today_task_list_section.dart` | Focus plan task groups |
+| `performance_snapshot_card.dart` | Sidebar metrics |
+| `deep_work_card.dart` | Active session (via `widgets/deep_work/`) |
+| `builder_mode_card.dart` | Builder-domain today tasks |
+| `today_action_row.dart` | Filter + New Task |
+| `today_filter_sheet.dart` | Today-specific filters |
 
-### Deep Work data layer
+### AI & services
 
 | File | Role |
 |------|------|
-| `database/tables/focus_sessions_table.dart` | Drift table definition |
-| `models/focus_session_record.dart` | Session domain model |
-| `models/enums/focus_quality.dart` | Quality enum + numeric scores |
+| `services/ai_service.dart` | HTTP client + error mapping |
+| `services/ai_context_builder.dart` | Brief request payload |
+| `services/weekly_review_service.dart` | Debrief orchestration |
+| `services/execution_score_calculator.dart` | Weighted Execution Score |
+| `services/execution_timeline_generator.dart` | Daily quality bars |
+| `services/insight_generator.dart` | Weekly insights |
+| `services/weekly_narrative_generator.dart` | Template narrative |
+| `services/daily_activity_stats.dart` | Focus seconds + streak |
+| `services/data_management_service.dart` | Delete all local data |
+| `providers/ai_providers.dart` | `executiveBriefProvider` |
+
+### Deep Work
+
+| File | Role |
+|------|------|
+| `providers/focus_session_provider.dart` | Deep Work Engine |
 | `repositories/focus_session_repository.dart` | Session persistence |
-| `providers/focus_session_provider.dart` | Deep Work Engine notifier |
-| `providers/focus_session_repository_provider.dart` | Repository DI |
-| `utils/deep_work_utils.dart` | Goal constants, planning accuracy, formatting |
+| `widgets/deep_work/deep_work_section.dart` | Task detail block |
+| `widgets/deep_work/end_session_dialog.dart` | Quality rating |
+| `widgets/deep_work/session_recovery_dialog.dart` | Crash recovery |
 
-### Executive Debrief services (`lib/services/`)
-
-| File | Role |
-|------|------|
-| `weekly_review_service.dart` | Orchestrates debrief data, priority suggestions |
-| `execution_score_calculator.dart` | Weighted Execution Score formula |
-| `execution_timeline_generator.dart` | Rule-based daily execution quality |
-| `insight_generator.dart` | Deterministic weekly insights |
-| `weekly_narrative_generator.dart` | Template executive paragraph |
-
-### Review widgets (`lib/widgets/review/`)
+### Utils
 
 | File | Role |
 |------|------|
-| `execution_summary_card.dart` | Executive Summary metrics grid |
-| `execution_timeline.dart` | Weekly quality timeline |
-| `execution_insights_panel.dart` | Insight tiles |
-| `weekly_narrative_card.dart` | Auto-generated narrative |
-| `reflection_card.dart` | Stitch-style reflection inputs |
-| `next_actions_checklist.dart` | Next Week Priorities |
+| `utils/task_filter_utils.dart` | Filters, `taskCompletedToday`, `tasksForPerformanceDay` |
+| `utils/deep_work_utils.dart` | Goal constants, planning accuracy |
+| `utils/review_stats_utils.dart` | Week boundaries, started rates |
 
 ---
 
-*Last updated to match codebase state including Executive Debrief (schema v6), Deep Work Engine, and expanded Performance Snapshot.*
+*Last updated: Executive Brief AI layer, today-completion semantics, Performance Snapshot day metrics, Profile/Settings screens, optional `ciara_os_backend`.*
