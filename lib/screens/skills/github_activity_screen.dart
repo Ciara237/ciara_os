@@ -151,7 +151,7 @@ class _SyncRow extends StatelessWidget {
             )
           : const Icon(Icons.refresh, size: 18),
       label: Text(
-        isSyncing ? 'Syncing…' : '↻ Sync Now',
+        isSyncing ? 'Syncing…' : 'Sync Now',
         style: AppTypography.labelLarge.copyWith(
           color: colorScheme.onSurfaceVariant,
         ),

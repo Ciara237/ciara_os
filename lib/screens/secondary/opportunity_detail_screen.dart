@@ -3,7 +3,7 @@ import 'package:ciaraos/providers/opportunity_providers.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/opportunity_utils.dart';
-import 'package:ciaraos/widgets/opportunities/opportunity_detail_header.dart';
+import 'package:ciaraos/widgets/navigation/minimal_back_header.dart';
 import 'package:ciaraos/widgets/opportunities/opportunity_documents_card.dart';
 import 'package:ciaraos/widgets/opportunities/opportunity_fit_notes_card.dart';
 import 'package:ciaraos/widgets/opportunities/opportunity_metadata_section.dart';
@@ -159,7 +159,7 @@ class _OpportunityDetailScreenState
       color: colorScheme.surface,
       child: Column(
         children: [
-          const OpportunityDetailHeader(),
+          const MinimalBackHeader(),
           Expanded(
             child: opportunityAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),

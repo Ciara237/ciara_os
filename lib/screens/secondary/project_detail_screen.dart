@@ -11,6 +11,7 @@ import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
 import 'package:ciaraos/utils/opportunity_utils.dart';
 import 'package:ciaraos/utils/project_utils.dart';
+import 'package:ciaraos/widgets/navigation/minimal_back_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -181,7 +182,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
       color: colorScheme.surface,
       child: Column(
         children: [
-          ProjectDetailHeader(projectId: widget.projectId),
+          const MinimalBackHeader(),
           Expanded(
             child: projectAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -235,7 +236,11 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     AppSpacing.xxl,
                   ),
                   children: [
-                    ProjectIdentitySection(project: project),
+                    ProjectIdentitySection(
+                      project: project,
+                      onEdit: () =>
+                          context.push('/projects/${widget.projectId}/edit'),
+                    ),
                     const SizedBox(height: AppSpacing.lg),
                     ProjectOpenButton(externalLink: project.externalLink),
                     const SizedBox(height: AppSpacing.lg),
@@ -282,54 +287,15 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   }
 }
 
-class ProjectDetailHeader extends StatelessWidget {
-  const ProjectDetailHeader({super.key, required this.projectId});
-
-  final String projectId;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      height: AppSpacing.appBarHeight,
-      color: colorScheme.surfaceContainerLow,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-      child: Row(
-        children: [
-          _DetailCompactIconButton(
-            onPressed: () => context.pop(),
-            icon: Icons.arrow_back,
-            color: colorScheme.onSurface,
-          ),
-          Icon(Icons.terminal, color: colorScheme.primary, size: AppSpacing.lg),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Ciara OS',
-              style: AppTypography.monospace.copyWith(
-                color: colorScheme.onSurface,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          _DetailCompactIconButton(
-            onPressed: () => context.push('/projects/$projectId/edit'),
-            icon: Icons.edit,
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class ProjectIdentitySection extends StatelessWidget {
-  const ProjectIdentitySection({super.key, required this.project});
+  const ProjectIdentitySection({
+    super.key,
+    required this.project,
+    this.onEdit,
+  });
 
   final Project project;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -356,6 +322,14 @@ class ProjectIdentitySection extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (onEdit != null) ...[
+              const Spacer(),
+              _DetailCompactIconButton(
+                onPressed: onEdit,
+                icon: Icons.edit,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
           ],
         ),
         const SizedBox(height: AppSpacing.lg),

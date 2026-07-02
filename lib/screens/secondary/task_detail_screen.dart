@@ -14,6 +14,7 @@ import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
 import 'package:ciaraos/widgets/deep_work/deep_work_section.dart';
 import 'package:ciaraos/widgets/deep_work/end_session_dialog.dart';
+import 'package:ciaraos/widgets/navigation/minimal_back_header.dart';
 import 'package:ciaraos/utils/opportunity_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -250,10 +251,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
 
     return ColoredBox(
       color: colorScheme.surface,
-      child: Stack(
+      child: Column(
         children: [
-          const Positioned.fill(child: _TaskDetailDotBackground()),
-          taskAsync.when(
+          const MinimalBackHeader(),
+          Expanded(
+            child: Stack(
+              children: [
+                const Positioned.fill(child: _TaskDetailDotBackground()),
+                taskAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => Center(
               child: Text(
@@ -303,7 +308,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                       isUpdating: _isUpdating,
                       isEditingNotes: _isEditingNotes,
                       notesController: _notesController,
-                      onClose: () => context.pop(),
                       onEdit: () => context.push('/tasks/${task.id}/edit'),
                       onStart: () => _toggleFocusTimer(task),
                       onEditDeadline: () => _pickDeadline(task),
@@ -321,6 +325,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                 ),
               );
             },
+          ),
+              ],
+            ),
           ),
         ],
       ),
@@ -378,7 +385,6 @@ class TaskDetailCard extends StatelessWidget {
     required this.isUpdating,
     required this.isEditingNotes,
     required this.notesController,
-    required this.onClose,
     required this.onEdit,
     required this.onStart,
     required this.onEditDeadline,
@@ -399,7 +405,6 @@ class TaskDetailCard extends StatelessWidget {
   final bool isUpdating;
   final bool isEditingNotes;
   final TextEditingController notesController;
-  final VoidCallback onClose;
   final VoidCallback onEdit;
   final VoidCallback onStart;
   final VoidCallback onEditDeadline;
@@ -441,7 +446,6 @@ class TaskDetailCard extends StatelessWidget {
               padding: EdgeInsets.all(cardPadding),
               child: TaskDetailCardHeader(
                 task: task,
-                onClose: onClose,
                 onEdit: onEdit,
               ),
             ),
@@ -511,12 +515,10 @@ class TaskDetailCardHeader extends StatelessWidget {
   const TaskDetailCardHeader({
     super.key,
     required this.task,
-    required this.onClose,
     required this.onEdit,
   });
 
   final Task task;
-  final VoidCallback onClose;
   final VoidCallback onEdit;
 
   @override
@@ -555,12 +557,6 @@ class TaskDetailCardHeader extends StatelessWidget {
                 _DetailCompactIconButton(
                   onPressed: onEdit,
                   icon: Icons.edit,
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                _DetailCompactIconButton(
-                  onPressed: onClose,
-                  icon: Icons.close,
                   color: colorScheme.onSurfaceVariant,
                 ),
               ],
