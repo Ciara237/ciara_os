@@ -1,5 +1,6 @@
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
+import 'package:ciaraos/utils/sidebar_navigation_utils.dart';
 import 'package:ciaraos/widgets/common/user_avatar_button.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -9,13 +10,6 @@ const _headerActionSize = 40.0;
 
 class TodayHeader extends StatelessWidget {
   const TodayHeader({super.key});
-
-  void _openDrawer(BuildContext context) {
-    final scaffold = Scaffold.maybeOf(context);
-    if (scaffold?.hasDrawer ?? false) {
-      scaffold!.openDrawer();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +30,7 @@ class TodayHeader extends StatelessWidget {
         children: [
           UserAvatarButton(
             size: _headerActionSize,
-            onTap: () => _openDrawer(context),
+            onTap: () => handleAvatarNavigation(context),
           ),
           const SizedBox(width: _headerGroupGap),
           Icon(Icons.terminal, color: colorScheme.primary, size: 24),

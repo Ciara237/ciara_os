@@ -1,6 +1,7 @@
 import 'package:ciaraos/providers/profile_providers.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
+import 'package:ciaraos/utils/sidebar_navigation_utils.dart';
 import 'package:ciaraos/widgets/common/user_avatar_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +44,7 @@ class PrimaryDrawer extends ConsumerWidget {
             _DrawerHeader(
               displayName: profile.resolvedDisplayName,
               tagline: profile.tagline,
-              onAvatarTap: () => Navigator.of(context).pop(),
+              onAvatarTap: () => handleDrawerAvatarNavigation(context),
             ),
             Expanded(
               child: ListView(
@@ -189,7 +190,7 @@ class _DrawerHeader extends StatelessWidget {
               UserAvatarButton(
                 size: _drawerAvatarSize,
                 onTap: onAvatarTap,
-                tooltip: 'Close navigation menu',
+                tooltip: 'Go to Today',
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
