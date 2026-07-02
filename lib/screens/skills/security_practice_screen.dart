@@ -1,12 +1,31 @@
 import 'package:ciaraos/models/security_activity.dart';
 import 'package:ciaraos/providers/security_providers.dart';
+import 'package:ciaraos/services/security_service.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/opportunity_utils.dart';
+import 'package:ciaraos/widgets/analytics/inline_section_empty_state.dart';
 import 'package:ciaraos/widgets/navigation/sidebar_screen_scaffold.dart';
+import 'package:ciaraos/widgets/skills/security_api_empty_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
+enum _SecurityDataState { thresholdNotMet, partial, full }
+
+_SecurityDataState _resolveSecurityState({
+  required SecurityEndpointAvailability availability,
+  required bool hasProfile,
+}) {
+  if (availability == SecurityEndpointAvailability.notConfigured ||
+      availability == SecurityEndpointAvailability.backendUnreachable) {
+    return _SecurityDataState.thresholdNotMet;
+  }
+  if (hasProfile) {
+    return _SecurityDataState.full;
+  }
+  return _SecurityDataState.partial;
+}
 
 const _securityRed = Color(0xFFEF4444);
 const _htbSkillKeys = [
@@ -269,6 +288,7 @@ class _HackTheBoxTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(hackTheBoxProvider);
+    final probeAsync = ref.watch(securityApiProbeProvider);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -278,31 +298,207 @@ class _HackTheBoxTab extends ConsumerWidget {
         AppSpacing.xxl,
       ),
       children: [
-        profileAsync.when(
+        probeAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, _) => const _ErrorMessage(
-            message: 'Could not load HackTheBox data.',
+            message: 'Could not check HackTheBox API status.',
           ),
-          data: (profile) {
-            if (profile == null) {
-              return const _ErrorMessage(
-                message: 'No HackTheBox data. Sync to pull your profile.',
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _HtbProfileCard(profile: profile),
-                const SizedBox(height: AppSpacing.lg),
-                _HtbSkillCoverageCard(coverage: profile.skillCoverage),
-                const SizedBox(height: AppSpacing.lg),
-                _HtbRecentActivitySection(activity: profile.recentActivity),
-              ],
+          data: (probe) {
+            return profileAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, _) => const _ErrorMessage(
+                message: 'Could not load HackTheBox data.',
+              ),
+              data: (profile) {
+                final state = _resolveSecurityState(
+                  availability: probe.htb,
+                  hasProfile: profile != null,
+                );
+
+                if (state == _SecurityDataState.thresholdNotMet) {
+                  return _HtbThresholdNotMet(
+                    probe: probe,
+                    onLogManual: onLogManual,
+                    onSync: () =>
+                        ref.read(hackTheBoxProvider.notifier).sync(),
+                  );
+                }
+
+                if (state == _SecurityDataState.partial) {
+                  return _HtbPartialState(
+                    onLogManual: onLogManual,
+                    onSync: () =>
+                        ref.read(hackTheBoxProvider.notifier).sync(),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _HtbProfileCard(profile: profile!),
+                    const SizedBox(height: AppSpacing.lg),
+                    _HtbSkillCoverageCard(coverage: profile.skillCoverage),
+                    const SizedBox(height: AppSpacing.lg),
+                    _HtbRecentActivitySection(activity: profile.recentActivity),
+                  ],
+                );
+              },
             );
           },
         ),
         const SizedBox(height: AppSpacing.lg),
         _ManualLogButton(onPressed: onLogManual),
+      ],
+    );
+  }
+}
+
+class _HtbThresholdNotMet extends StatelessWidget {
+  const _HtbThresholdNotMet({
+    required this.probe,
+    required this.onLogManual,
+    required this.onSync,
+  });
+
+  final SecurityApiProbe probe;
+  final VoidCallback onLogManual;
+  final VoidCallback onSync;
+
+  @override
+  Widget build(BuildContext context) {
+    final backendDown = !probe.backendHealthy;
+    final errorMessage = backendDown
+        ? 'CRITICAL: Backend unreachable at localhost:8001'
+        : 'CRITICAL: HTB_API_KEY not configured';
+    final helpMessage = backendDown
+        ? 'Start the Ciara OS backend (uvicorn) before syncing HackTheBox data.'
+        : 'Add your HackTheBox API key to the backend .env file to sync your profile, owned machines, and rank.';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SecurityApiTerminalEmptyState(
+          scriptName: 'htb_connection.sh',
+          initMessage: 'Initializing connection to HackTheBox API…',
+          errorMessage: errorMessage,
+          helpMessage: helpMessage,
+          envLines: const ['HTB_API_KEY=your_key_here'],
+          onLogManual: onLogManual,
+          onSync: backendDown ? onSync : null,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Opacity(
+          opacity: 0.4,
+          child: IgnorePointer(
+            child: _SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'QUICK STATS',
+                    style: AppTypography.labelSmall.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _StatsGrid(
+                    items: const [
+                      _StatItem(label: 'Machines', value: '—'),
+                      _StatItem(label: 'Challenges', value: '—'),
+                      _StatItem(label: 'Global Rank', value: '—'),
+                      _StatItem(label: 'Points', value: '—'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        const SecurityLockedSection(
+          title: 'Activity heatmaps locked',
+          message:
+              'Connect API to unlock activity heatmaps and target tracking.',
+        ),
+      ],
+    );
+  }
+}
+
+class _HtbPartialState extends StatelessWidget {
+  const _HtbPartialState({
+    required this.onLogManual,
+    required this.onSync,
+  });
+
+  final VoidCallback onLogManual;
+  final VoidCallback onSync;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionCard(
+          child: InlineSectionEmptyState(
+            title: 'No HackTheBox profile yet',
+            message:
+                'Your HTB rank, machines owned, and streak will appear here after the first sync.',
+            actionHint: 'Tap Sync Now to pull your HackTheBox profile',
+            icon: Icons.security,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _SectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'SKILL COVERAGE',
+                style: AppTypography.labelSmall.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              InlineSectionEmptyState(
+                message:
+                    'Skill coverage by category fills in after your profile syncs.',
+                actionHint: 'Sync Now or log practice manually',
+                compact: true,
+                icon: Icons.grid_view_outlined,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'RECENT ACTIVITY',
+              style: AppTypography.labelSmall.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            InlineSectionEmptyState(
+              message: 'Recent machine and challenge solves appear here.',
+              actionHint: 'Sync HackTheBox or log a manual session',
+              compact: true,
+              icon: Icons.history,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        OutlinedButton.icon(
+          onPressed: onSync,
+          icon: const Icon(Icons.refresh, size: 18),
+          label: const Text('Sync Now'),
+        ),
       ],
     );
   }
@@ -316,6 +512,7 @@ class _HackerOneTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(hackerOneProvider);
+    final probeAsync = ref.watch(securityApiProbeProvider);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -325,31 +522,188 @@ class _HackerOneTab extends ConsumerWidget {
         AppSpacing.xxl,
       ),
       children: [
-        profileAsync.when(
+        probeAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (_, _) => const _ErrorMessage(
-            message: 'Could not load HackerOne data.',
+            message: 'Could not check HackerOne API status.',
           ),
-          data: (profile) {
-            if (profile == null) {
-              return const _ErrorMessage(
-                message: 'No HackerOne data. Sync to pull your profile.',
-              );
-            }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _H1ProfileCard(profile: profile),
-                const SizedBox(height: AppSpacing.lg),
-                _H1BountyCard(summary: profile.bountySummary),
-                const SizedBox(height: AppSpacing.lg),
-                _H1ReportsSection(reports: profile.recentReports),
-              ],
+          data: (probe) {
+            return profileAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (_, _) => const _ErrorMessage(
+                message: 'Could not load HackerOne data.',
+              ),
+              data: (profile) {
+                final state = _resolveSecurityState(
+                  availability: probe.h1,
+                  hasProfile: profile != null,
+                );
+
+                if (state == _SecurityDataState.thresholdNotMet) {
+                  return _H1ThresholdNotMet(
+                    probe: probe,
+                    onLogManual: onLogManual,
+                    onSync: () =>
+                        ref.read(hackerOneProvider.notifier).sync(),
+                  );
+                }
+
+                if (state == _SecurityDataState.partial) {
+                  return _H1PartialState(
+                    onSync: () =>
+                        ref.read(hackerOneProvider.notifier).sync(),
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _H1ProfileCard(profile: profile!),
+                    const SizedBox(height: AppSpacing.lg),
+                    _H1BountyCard(summary: profile.bountySummary),
+                    const SizedBox(height: AppSpacing.lg),
+                    _H1ReportsSection(reports: profile.recentReports),
+                  ],
+                );
+              },
             );
           },
         ),
         const SizedBox(height: AppSpacing.lg),
         _ManualLogButton(onPressed: onLogManual),
+      ],
+    );
+  }
+}
+
+class _H1ThresholdNotMet extends StatelessWidget {
+  const _H1ThresholdNotMet({
+    required this.probe,
+    required this.onLogManual,
+    required this.onSync,
+  });
+
+  final SecurityApiProbe probe;
+  final VoidCallback onLogManual;
+  final VoidCallback onSync;
+
+  @override
+  Widget build(BuildContext context) {
+    final backendDown = !probe.backendHealthy;
+    final errorMessage = backendDown
+        ? 'CRITICAL: Backend unreachable at localhost:8001'
+        : 'CRITICAL: H1_USERNAME and H1_API_TOKEN not configured';
+    final helpMessage = backendDown
+        ? 'Start the Ciara OS backend before syncing HackerOne data.'
+        : 'Configure your HackerOne username and API token in the backend .env to track bounties, reports, and signal.';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SecurityApiTerminalEmptyState(
+          scriptName: 'h1_auth.log',
+          initMessage: 'Validating HackerOne credentials…',
+          errorMessage: errorMessage,
+          helpMessage: helpMessage,
+          envLines: const [
+            'H1_USERNAME=your_username',
+            'H1_API_TOKEN=your_token_here',
+          ],
+          onLogManual: onLogManual,
+          onSync: backendDown ? onSync : null,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Opacity(
+          opacity: 0.4,
+          child: IgnorePointer(
+            child: _SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'BOUNTY FEED',
+                    style: AppTypography.labelSmall.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  ...List.generate(
+                    2,
+                    (_) => Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      child: Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusSm),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        const SecurityLockedSection(
+          title: 'Reports locked',
+          message:
+              'Connect API to see recent vulnerability reports and reputation changes.',
+          icon: Icons.visibility_off_outlined,
+        ),
+      ],
+    );
+  }
+}
+
+class _H1PartialState extends StatelessWidget {
+  const _H1PartialState({required this.onSync});
+
+  final VoidCallback onSync;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionCard(
+          child: InlineSectionEmptyState(
+            title: 'No HackerOne profile yet',
+            message:
+                'Your signal, reputation, and report stats appear here after the first sync.',
+            actionHint: 'Tap Sync Now to pull your HackerOne profile',
+            icon: Icons.bug_report_outlined,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        _SectionCard(
+          child: InlineSectionEmptyState(
+            title: 'Bounty summary',
+            message: 'Resolved report earnings and rankings populate after sync.',
+            actionHint: 'Sync Now or log manual practice',
+            compact: true,
+            icon: Icons.payments_outlined,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        InlineSectionEmptyState(
+          title: 'Recent reports',
+          message: 'Your latest submitted and triaged reports list here.',
+          actionHint: 'Sync HackerOne to load report history',
+          compact: true,
+          icon: Icons.article_outlined,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        OutlinedButton.icon(
+          onPressed: onSync,
+          icon: const Icon(Icons.refresh, size: 18),
+          label: const Text('Sync Now'),
+        ),
       ],
     );
   }

@@ -1,0 +1,48 @@
+---
+description: Three-state empty handling for analytics and skills sidebar screens
+globs:
+  - lib/screens/analytics/**
+  - lib/screens/skills/**
+---
+
+# EMPTY STATE IMPLEMENTATION RULES
+
+Every analytics/skills screen must implement **three distinct states** — do not use a single "empty" widget for all of them.
+
+## 1. THRESHOLD NOT MET
+
+Show the full screen structure. Each data section renders its skeleton/header, then shows an inline empty state with:
+
+- What this section will show
+- What action populates it (specific — e.g. "Complete a weekly review", not "Add data")
+- Progress toward threshold if applicable (e.g. `LinearProgressIndicator` + "N/4 reviews")
+
+## 2. PARTIAL DATA (some data, below threshold)
+
+- Render real data where it exists
+- For missing data points (e.g. week 3 of 8 in a trend chart): render as 0 or null point, not as an error
+- Add a subtle note below the chart: "Building your trend… N weeks tracked"
+
+## 3. FULL DATA
+
+Complete experience, no empty state messaging.
+
+## Threshold constants (define at top of screen file)
+
+| Screen | Constant | Value |
+|--------|----------|-------|
+| Productivity Trends | `kTrendsMinWeeks` | 4 |
+| Planning Accuracy | `kAccuracyMinTasks` | 5 |
+| Security (API) | — | Check backend `/health` + endpoint availability |
+
+## Provider usage for thresholds
+
+Compute thresholds from **existing providers** — do not add new DB queries just for threshold checking:
+
+- Productivity Trends → `allWeeklyReviewsProvider.length`
+- Planning Accuracy → `allTasksProvider` filtered where `planningAccuracy != null`
+- Security → `SecurityService` health + endpoint probe (503 = not configured)
+
+## UI reference
+
+Match inline empty patterns from `stitch_ciara_os_execution_system/empty_state_*` mockups. Reuse `InlineSectionEmptyState`, `ChartPlaceholder`, and `TrendBuildingNote` from `lib/widgets/analytics/inline_section_empty_state.dart`.

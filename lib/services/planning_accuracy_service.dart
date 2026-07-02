@@ -4,14 +4,14 @@ import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
 
 class PlanningAccuracyService {
-  static const _minTasksForInsights = 3;
+  static const minTasksForInsights = 5;
   static const _trendWeekCount = 8;
 
   PlanningAccuracyData compute(List<Task> tasks) {
     final qualifying = tasks.where(_hasAccuracyData).toList();
     final count = qualifying.length;
 
-    if (count < _minTasksForInsights) {
+    if (count == 0) {
       return PlanningAccuracyData(
         overallAccuracy: null,
         deltaVsPriorPeriod: null,
@@ -41,7 +41,7 @@ class PlanningAccuracyService {
       eightWeekTrend: trend,
       tip: _buildTip(byDomain, avgGap, overall),
       qualifyingTaskCount: count,
-      hasEnoughData: true,
+      hasEnoughData: count >= minTasksForInsights,
     );
   }
 

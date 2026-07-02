@@ -7,6 +7,10 @@ final securityServiceProvider = Provider<SecurityService>((ref) {
   return SecurityService();
 });
 
+final securityApiProbeProvider = FutureProvider<SecurityApiProbe>((ref) async {
+  return ref.read(securityServiceProvider).probeEndpoints();
+});
+
 final activeSecurityTabProvider = StateProvider<int>((ref) => 0);
 
 final hackTheBoxProvider =

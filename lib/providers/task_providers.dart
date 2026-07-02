@@ -2,11 +2,14 @@ import 'package:ciaraos/models/domain_analytics.dart';
 import 'package:ciaraos/models/enums/domain.dart';
 import 'package:ciaraos/models/enums/task_status.dart';
 import 'package:ciaraos/models/planning_accuracy_data.dart';
+import 'package:ciaraos/models/productivity_trends_data.dart';
 import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/providers/database_provider.dart';
+import 'package:ciaraos/providers/weekly_review_providers.dart';
 import 'package:ciaraos/repositories/task_repository.dart';
 import 'package:ciaraos/services/domain_analytics_service.dart';
 import 'package:ciaraos/services/planning_accuracy_service.dart';
+import 'package:ciaraos/services/productivity_trends_service.dart';
 import 'package:ciaraos/utils/task_filter_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -77,4 +80,13 @@ final planningAccuracyProvider = FutureProvider<PlanningAccuracyData>((ref) asyn
   ref.watch(allTasksProvider);
   final tasks = await ref.watch(allTasksProvider.future);
   return PlanningAccuracyService().compute(tasks);
+});
+
+final productivityTrendsProvider =
+    FutureProvider<ProductivityTrendsData>((ref) async {
+  ref.watch(allWeeklyReviewsProvider);
+  ref.watch(allTasksProvider);
+  final reviews = await ref.watch(allWeeklyReviewsProvider.future);
+  final tasks = await ref.watch(allTasksProvider.future);
+  return ProductivityTrendsService().compute(reviews: reviews, tasks: tasks);
 });
