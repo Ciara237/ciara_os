@@ -3,6 +3,7 @@ import 'package:ciaraos/providers/focus_session_repository_provider.dart';
 import 'package:ciaraos/providers/navigation_provider.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/widgets/deep_work/session_recovery_dialog.dart';
+import 'package:ciaraos/widgets/navigation/primary_drawer.dart';
 import 'package:ciaraos/widgets/navigation/primary_nav_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -94,6 +95,7 @@ class _PrimaryShellScaffoldState extends ConsumerState<PrimaryShellScaffold> {
     }
 
     return Scaffold(
+      drawer: const PrimaryDrawer(),
       body: widget.child,
       bottomNavigationBar: const PrimaryNavBar(),
     );

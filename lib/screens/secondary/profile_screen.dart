@@ -21,7 +21,6 @@ import 'package:ciaraos/widgets/navigation/primary_drawer.dart';
 import 'package:ciaraos/widgets/today/today_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const _githubUrl = 'https://github.com/Ciara237/Ciara_OS';
@@ -40,7 +39,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isEditingName = false;
   late final TextEditingController _taglineController;
   late final TextEditingController _nameController;
-  bool _profileLoaded = false;
 
   @override
   void initState() {
@@ -133,33 +131,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final weekTasksAsync = ref.watch(weekTasksProvider(currentMonday));
     final themeMode = ref.watch(themeModeProvider);
     final profile = ref.watch(profileProvider);
-
-    if (!_profileLoaded && profile.isNameConfigured) {
-      _profileLoaded = true;
-    }
-
-    if (!_profileLoaded && profile.displayName.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() => _profileLoaded = true);
-        }
-      });
-    }
-
-    final isReady = profile.isNameConfigured || profile.displayName.isNotEmpty;
-
-    if (!isReady) {
-      return Scaffold(
-        drawer: const PrimaryDrawer(),
-        backgroundColor: colorScheme.surface,
-        body: const Column(
-          children: [
-            TodayHeader(),
-            Expanded(child: Center(child: CircularProgressIndicator())),
-          ],
-        ),
-      );
-    }
 
     return Scaffold(
       drawer: const PrimaryDrawer(),
@@ -318,20 +289,36 @@ class _ProfileHeader extends StatelessWidget {
 
 class _IdentitySection extends StatelessWidget {
   const _IdentitySection({
+    required this.displayName,
+    required this.initials,
     required this.tagline,
+    required this.isEditingName,
     required this.isEditingTagline,
+    required this.nameController,
     required this.taglineController,
-    required this.onStartEdit,
-    required this.onConfirmEdit,
-    required this.onCancelEdit,
+    required this.onStartEditName,
+    required this.onConfirmNameEdit,
+    required this.onCancelNameEdit,
+    required this.onPromptForName,
+    required this.onStartEditTagline,
+    required this.onConfirmTaglineEdit,
+    required this.onCancelTaglineEdit,
   });
 
+  final String displayName;
+  final String initials;
   final String tagline;
+  final bool isEditingName;
   final bool isEditingTagline;
+  final TextEditingController nameController;
   final TextEditingController taglineController;
-  final VoidCallback onStartEdit;
-  final VoidCallback onConfirmEdit;
-  final VoidCallback onCancelEdit;
+  final VoidCallback onStartEditName;
+  final VoidCallback onConfirmNameEdit;
+  final VoidCallback onCancelNameEdit;
+  final VoidCallback onPromptForName;
+  final VoidCallback onStartEditTagline;
+  final VoidCallback onConfirmTaglineEdit;
+  final VoidCallback onCancelTaglineEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -341,22 +328,86 @@ class _IdentitySection extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: _ProfileScreenState._avatarSize / 2,
-          backgroundColor: AppColors.darkPrimary,
+          backgroundColor: colorScheme.primary,
           child: Text(
-            'CM',
+            initials,
             style: AppTypography.headingMedium.copyWith(
-              color: Colors.white,
+              color: colorScheme.onPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        Text(
-          'Ciara M.',
-          style: AppTypography.headingLarge.copyWith(
-            color: colorScheme.onSurface,
+        if (isEditingName)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: nameController,
+                    autofocus: true,
+                    textAlign: TextAlign.center,
+                    textCapitalization: TextCapitalization.words,
+                    style: AppTypography.headingLarge.copyWith(
+                      color: colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: UnderlineInputBorder(
+                        borderSide: BorderSide(color: colorScheme.primary),
+                      ),
+                    ),
+                    onSubmitted: (_) => onConfirmNameEdit(),
+                  ),
+                ),
+                IconButton(
+                  onPressed: onConfirmNameEdit,
+                  icon: Icon(Icons.check, color: colorScheme.primary),
+                ),
+                IconButton(
+                  onPressed: onCancelNameEdit,
+                  icon: Icon(Icons.close, color: colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          )
+        else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  displayName,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headingLarge.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onStartEditName,
+                icon: Icon(
+                  Icons.edit_outlined,
+                  size: AppSpacing.md,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                padding: const EdgeInsets.only(left: AppSpacing.xs),
+                constraints: const BoxConstraints(),
+              ),
+            ],
           ),
-        ),
+        if (!isEditingName)
+          TextButton(
+            onPressed: onPromptForName,
+            child: Text(
+              'Change display name',
+              style: AppTypography.labelLarge.copyWith(
+                color: colorScheme.primary,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ),
         const SizedBox(height: AppSpacing.sm),
         if (isEditingTagline)
           Padding(
@@ -377,15 +428,15 @@ class _IdentitySection extends StatelessWidget {
                         borderSide: BorderSide(color: colorScheme.primary),
                       ),
                     ),
-                    onSubmitted: (_) => onConfirmEdit(),
+                    onSubmitted: (_) => onConfirmTaglineEdit(),
                   ),
                 ),
                 IconButton(
-                  onPressed: onConfirmEdit,
+                  onPressed: onConfirmTaglineEdit,
                   icon: Icon(Icons.check, color: colorScheme.primary),
                 ),
                 IconButton(
-                  onPressed: onCancelEdit,
+                  onPressed: onCancelTaglineEdit,
                   icon: Icon(Icons.close, color: colorScheme.onSurfaceVariant),
                 ),
               ],
@@ -405,7 +456,7 @@ class _IdentitySection extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: onStartEdit,
+                onPressed: onStartEditTagline,
                 icon: Icon(
                   Icons.edit_outlined,
                   size: AppSpacing.md,
