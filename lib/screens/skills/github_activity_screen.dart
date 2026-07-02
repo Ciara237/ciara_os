@@ -61,7 +61,7 @@ class _GitHubActivityScreenState extends ConsumerState<GitHubActivityScreen> {
           const SizedBox(height: AppSpacing.lg),
           _SyncRow(
             isSyncing: isSyncing,
-            onSync: notifier.sync,
+            onSync: () => notifier.sync(force: true),
           ),
           const SizedBox(height: AppSpacing.lg),
           activityAsync.when(

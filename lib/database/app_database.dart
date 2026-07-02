@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 
 import 'tables/certifications_table.dart';
 import 'tables/focus_sessions_table.dart';
+import 'tables/notes_table.dart';
 import 'tables/opportunities_table.dart';
 import 'tables/projects_table.dart';
+import 'tables/resources_table.dart';
 import 'tables/tasks_table.dart';
 import 'tables/weekly_reviews_table.dart';
 
@@ -19,6 +21,8 @@ part 'app_database.g.dart';
     WeeklyReviews,
     FocusSessions,
     Certifications,
+    Notes,
+    Resources,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -41,7 +45,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -107,6 +111,10 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 7) {
             await migrator.createTable(certifications);
+          }
+          if (from < 8) {
+            await migrator.createTable(notes);
+            await migrator.createTable(resources);
           }
         },
       );

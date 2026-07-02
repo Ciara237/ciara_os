@@ -12,6 +12,7 @@ import 'package:ciaraos/screens/secondary/profile_screen.dart';
 import 'package:ciaraos/screens/analytics/domain_breakdown_screen.dart';
 import 'package:ciaraos/screens/analytics/planning_accuracy_screen.dart';
 import 'package:ciaraos/screens/analytics/productivity_trends_screen.dart';
+import 'package:ciaraos/screens/knowledge/note_editor_screen.dart';
 import 'package:ciaraos/screens/knowledge/notes_screen.dart';
 import 'package:ciaraos/screens/knowledge/resources_screen.dart';
 import 'package:ciaraos/screens/skills/certifications_screen.dart';
@@ -117,6 +118,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/analytics/accuracy',
         builder: (context, state) => const PlanningAccuracyScreen(),
+      ),
+      GoRoute(
+        path: '/knowledge/notes/new',
+        builder: (context, state) => const NoteEditorScreen(),
+      ),
+      GoRoute(
+        path: '/knowledge/notes/:id',
+        builder: (context, state) => NoteEditorScreen(
+          noteId: state.pathParameters['id'],
+        ),
       ),
       GoRoute(
         path: '/knowledge/notes',
