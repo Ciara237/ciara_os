@@ -37,6 +37,7 @@ class TodayPerformanceSnapshot {
     required this.totalToday,
     required this.focusSeconds,
     required this.dailyStreak,
+    required this.streakLoggedToday,
     required this.sessionCountToday,
     required this.averageQualityScore,
     required this.planningAccuracy,
@@ -46,6 +47,7 @@ class TodayPerformanceSnapshot {
   final int totalToday;
   final int focusSeconds;
   final int dailyStreak;
+  final bool streakLoggedToday;
   final int sessionCountToday;
   final double? averageQualityScore;
   final double? planningAccuracy;
@@ -90,6 +92,7 @@ final todayPerformanceProvider =
     totalToday: dayTasks.length,
     focusSeconds: persistedFocus + sessionFocus,
     dailyStreak: await DailyActivityStats.dailyStreak(),
+    streakLoggedToday: await DailyActivityStats.isTodayLogged(),
     sessionCountToday: todaySessions.length +
         (session.isActive ? 1 : 0),
     averageQualityScore: qualityScores.isEmpty

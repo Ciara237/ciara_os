@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 import 'package:flutter/foundation.dart';
 
+import 'tables/certifications_table.dart';
 import 'tables/focus_sessions_table.dart';
 import 'tables/opportunities_table.dart';
 import 'tables/projects_table.dart';
@@ -17,6 +18,7 @@ part 'app_database.g.dart';
     Opportunities,
     WeeklyReviews,
     FocusSessions,
+    Certifications,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -39,7 +41,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -102,6 +104,9 @@ class AppDatabase extends _$AppDatabase {
               weeklyReviews,
               weeklyReviews.insightsJson,
             );
+          }
+          if (from < 7) {
+            await migrator.createTable(certifications);
           }
         },
       );

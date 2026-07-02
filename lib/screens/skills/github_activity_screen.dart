@@ -5,10 +5,11 @@ import 'package:ciaraos/theme/app_colors.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/opportunity_utils.dart';
+import 'package:ciaraos/widgets/skills/github_repo_card.dart';
 import 'package:ciaraos/widgets/navigation/sidebar_screen_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class GitHubActivityScreen extends ConsumerStatefulWidget {
@@ -73,6 +74,7 @@ class _GitHubActivityScreenState extends ConsumerState<GitHubActivityScreen> {
               return _ActivityBody(
                 activity: activity,
                 onOpenUrl: _openUrl,
+                onSeeAllRepos: () => context.push('/skills/github/repos'),
               );
             },
           ),
@@ -222,10 +224,14 @@ class _ActivityBody extends StatelessWidget {
   const _ActivityBody({
     required this.activity,
     required this.onOpenUrl,
+    required this.onSeeAllRepos,
   });
 
   final GitHubActivity activity;
   final Future<void> Function(String url) onOpenUrl;
+  final VoidCallback onSeeAllRepos;
+
+  static const _previewRepoCount = 5;
 
   @override
   Widget build(BuildContext context) {
@@ -246,7 +252,11 @@ class _ActivityBody extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
         _RepositoriesSection(
           repos: sortedRepos,
+          previewCount: _previewRepoCount,
           onOpenUrl: onOpenUrl,
+          onSeeAll: sortedRepos.length > _previewRepoCount
+              ? onSeeAllRepos
+              : null,
         ),
       ],
     );
@@ -585,15 +595,20 @@ class _CommitTile extends StatelessWidget {
 class _RepositoriesSection extends StatelessWidget {
   const _RepositoriesSection({
     required this.repos,
+    required this.previewCount,
     required this.onOpenUrl,
+    this.onSeeAll,
   });
 
   final List<GitHubRepo> repos;
+  final int previewCount;
   final Future<void> Function(String url) onOpenUrl;
+  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final previewRepos = repos.take(previewCount).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,136 +621,38 @@ class _RepositoriesSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        if (repos.isEmpty)
+        if (previewRepos.isEmpty)
           Text(
             'No repositories found.',
             style: AppTypography.bodyMedium.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
           )
-        else
-          ...repos.map(
-            (repo) => _RepoCard(
+        else ...[
+          ...previewRepos.map(
+            (repo) => GitHubRepoCard(
               repo: repo,
               onTap: () => onOpenUrl(repo.htmlUrl),
             ),
           ),
-      ],
-    );
-  }
-}
-
-class _RepoCard extends StatelessWidget {
-  const _RepoCard({
-    required this.repo,
-    required this.onTap,
-  });
-
-  final GitHubRepo repo;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final updatedLabel =
-        DateFormat('MMM d, yyyy').format(repo.updatedAt.toLocal());
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Material(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              border: Border.all(color: colorScheme.outlineVariant),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        repo.name,
-                        style: AppTypography.bodyLarge.copyWith(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ),
-                    if (repo.language != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                          vertical: AppSpacing.xs,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainer,
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusSm),
-                        ),
-                        child: Text(
-                          repo.language!,
-                          style: AppTypography.labelSmall.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                if (repo.description != null && repo.description!.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    repo.description!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      decoration: TextDecoration.none,
-                    ),
+          if (onSeeAll != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onSeeAll,
+                child: Text(
+                  'See more →',
+                  style: AppTypography.labelLarge.copyWith(
+                    color: colorScheme.primary,
+                    decoration: TextDecoration.none,
                   ),
-                ],
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    const Icon(Icons.star_outline, size: 16),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text(
-                      '${repo.stars}',
-                      style: AppTypography.labelSmall.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    const Icon(Icons.call_split, size: 16),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text(
-                      '${repo.forks}',
-                      style: AppTypography.labelSmall.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      updatedLabel,
-                      style: AppTypography.labelSmall.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
+          ],
+        ],
+      ],
     );
   }
 }

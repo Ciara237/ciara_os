@@ -89,6 +89,15 @@ abstract final class DailyActivityStats {
     return total;
   }
 
+  static Future<bool> isTodayLogged() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastActive = prefs.getString(_lastActiveKey);
+    if (lastActive == null) {
+      return false;
+    }
+    return lastActive == _dateKey(DateTime.now());
+  }
+
   static Future<int> dailyStreak() async {
     final prefs = await SharedPreferences.getInstance();
     final lastActive = prefs.getString(_lastActiveKey);

@@ -113,6 +113,11 @@ class _SnapshotGrid extends StatelessWidget {
               value: loading
                   ? '—'
                   : '${s?.dailyStreak ?? 0}d',
+              iconColor: loading
+                  ? null
+                  : (s?.streakLoggedToday == true
+                      ? colorScheme.tertiary
+                      : colorScheme.onSurfaceVariant),
             ),
           ],
         ),
@@ -126,11 +131,13 @@ class _Tile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.iconColor,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +158,11 @@ class _Tile extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: AppSpacing.md, color: colorScheme.primary),
+              Icon(
+                icon,
+                size: AppSpacing.md,
+                color: iconColor ?? colorScheme.primary,
+              ),
               const SizedBox(width: AppSpacing.xs),
               Expanded(
                 child: Text(
