@@ -5,6 +5,7 @@ import 'package:ciaraos/theme/app_colors.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/opportunity_utils.dart';
+import 'package:ciaraos/widgets/skills/github_commit_tile.dart';
 import 'package:ciaraos/widgets/skills/github_repo_card.dart';
 import 'package:ciaraos/widgets/navigation/sidebar_screen_scaffold.dart';
 import 'package:flutter/material.dart';
@@ -75,6 +76,7 @@ class _GitHubActivityScreenState extends ConsumerState<GitHubActivityScreen> {
                 activity: activity,
                 onOpenUrl: _openUrl,
                 onSeeAllRepos: () => context.push('/skills/github/repos'),
+                onSeeAllCommits: () => context.push('/skills/github/commits'),
               );
             },
           ),
@@ -229,13 +231,16 @@ class _ActivityBody extends StatelessWidget {
     required this.activity,
     required this.onOpenUrl,
     required this.onSeeAllRepos,
+    required this.onSeeAllCommits,
   });
 
   final GitHubActivity activity;
   final Future<void> Function(String url) onOpenUrl;
   final VoidCallback onSeeAllRepos;
+  final VoidCallback onSeeAllCommits;
 
   static const _previewRepoCount = 5;
+  static const _previewCommitCount = 8;
 
   @override
   Widget build(BuildContext context) {
@@ -250,8 +255,12 @@ class _ActivityBody extends StatelessWidget {
         _LanguagesCard(languages: activity.languages),
         const SizedBox(height: AppSpacing.lg),
         _RecentCommitsSection(
-          commits: activity.recentCommits.take(10).toList(),
+          commits: activity.recentCommits,
+          previewCount: _previewCommitCount,
           onOpenUrl: onOpenUrl,
+          onSeeAll: activity.recentCommits.length > _previewCommitCount
+              ? onSeeAllCommits
+              : null,
         ),
         const SizedBox(height: AppSpacing.lg),
         _RepositoriesSection(
@@ -322,8 +331,8 @@ class _ProfileCard extends StatelessWidget {
           Row(
             children: [
               _StatCell(
-                label: 'This week',
-                value: '${activity.totalCommitsThisWeek} commits',
+                label: 'Commits this week',
+                value: '${activity.totalCommitsThisWeek}',
               ),
               _StatCell(
                 label: 'Streak',
@@ -485,15 +494,20 @@ class _LanguageBar extends StatelessWidget {
 class _RecentCommitsSection extends StatelessWidget {
   const _RecentCommitsSection({
     required this.commits,
+    required this.previewCount,
     required this.onOpenUrl,
+    this.onSeeAll,
   });
 
   final List<GitHubCommit> commits;
+  final int previewCount;
   final Future<void> Function(String url) onOpenUrl;
+  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final previewCommits = commits.take(previewCount).toList();
     final newest = commits.isEmpty
         ? null
         : commits
@@ -537,92 +551,37 @@ class _RecentCommitsSection extends StatelessWidget {
           ),
         ],
         const SizedBox(height: AppSpacing.md),
-        if (commits.isEmpty)
+        if (previewCommits.isEmpty)
           Text(
             'No recent commits found.',
             style: AppTypography.bodyMedium.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
           )
-        else
-          ...commits.map(
-            (commit) => _CommitTile(
+        else ...[
+          ...previewCommits.map(
+            (commit) => GitHubCommitTile(
               commit: commit,
               onTap: () => onOpenUrl(commit.url),
             ),
           ),
-      ],
-    );
-  }
-}
-
-class _CommitTile extends StatelessWidget {
-  const _CommitTile({
-    required this.commit,
-    required this.onTap,
-  });
-
-  final GitHubCommit commit;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.domainColors[Domain.engineering]!
-                      .withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
+          if (onSeeAll != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onSeeAll,
                 child: Text(
-                  commit.repo,
-                  style: AppTypography.labelSmall.copyWith(
-                    color: AppColors.domainColors[Domain.engineering],
+                  'See all commits',
+                  style: AppTypography.labelLarge.copyWith(
+                    color: colorScheme.primary,
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      commit.message,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: colorScheme.onSurface,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                    Text(
-                      relativeTimeLabel(commit.date.toLocal()),
-                      style: AppTypography.labelSmall.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
+          ],
+        ],
+      ],
     );
   }
 }

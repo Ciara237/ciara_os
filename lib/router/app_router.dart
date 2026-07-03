@@ -21,6 +21,7 @@ import 'package:ciaraos/screens/knowledge/resources_screen.dart';
 import 'package:ciaraos/screens/skills/certifications_screen.dart';
 import 'package:ciaraos/screens/skills/security_practice_screen.dart';
 import 'package:ciaraos/screens/skills/github_activity_screen.dart';
+import 'package:ciaraos/screens/skills/github_commits_screen.dart';
 import 'package:ciaraos/screens/skills/github_repositories_screen.dart';
 import 'package:ciaraos/screens/secondary/project_create_edit_screen.dart';
 import 'package:ciaraos/screens/secondary/project_detail_screen.dart';
@@ -116,6 +117,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'repos',
             builder: (context, state) => const GitHubRepositoriesScreen(),
+          ),
+          GoRoute(
+            path: 'commits',
+            builder: (context, state) => const GitHubCommitsScreen(),
           ),
         ],
       ),
