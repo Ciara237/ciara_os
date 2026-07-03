@@ -4,6 +4,7 @@ import 'package:ciaraos/models/enums/project_status.dart';
 import 'package:ciaraos/models/enums/task_status.dart';
 import 'package:ciaraos/models/project.dart';
 import 'package:ciaraos/models/task.dart';
+import 'package:ciaraos/providers/notification_providers.dart';
 import 'package:ciaraos/providers/project_providers.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/theme/app_colors.dart';
@@ -177,6 +178,13 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
         );
         await repository.update(task.toCompanion());
         ref.invalidate(taskByIdProvider(task.id));
+        await scheduleDeadlineIfEnabled(
+          ref,
+          id: task.id,
+          title: task.title,
+          type: 'task',
+          deadline: task.deadline,
+        );
       } else {
         final task = Task(
           id: 0,
@@ -198,7 +206,14 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
           createdAt: now,
           updatedAt: now,
         );
-        await repository.insert(task.toCompanion(forInsert: true));
+        final newId = await repository.insert(task.toCompanion(forInsert: true));
+        await scheduleDeadlineIfEnabled(
+          ref,
+          id: newId,
+          title: title,
+          type: 'task',
+          deadline: _selectedDeadline,
+        );
       }
 
       if (mounted) {

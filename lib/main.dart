@@ -1,4 +1,5 @@
 import 'package:ciaraos/providers/daily_brief_gate_provider.dart';
+import 'package:ciaraos/providers/notification_providers.dart';
 import 'package:ciaraos/providers/onboarding_provider.dart';
 import 'package:ciaraos/providers/theme_provider.dart';
 import 'package:ciaraos/router/app_router.dart';
@@ -35,11 +36,24 @@ Future<void> main() async {
 }
 
 /// Root app shell — router and screens expand in later milestones.
-class CiaraOsApp extends ConsumerWidget {
+class CiaraOsApp extends ConsumerStatefulWidget {
   const CiaraOsApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CiaraOsApp> createState() => _CiaraOsAppState();
+}
+
+class _CiaraOsAppState extends ConsumerState<CiaraOsApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      initializeNotificationService(ref);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeMode = ref.watch(themeModeProvider);
 

@@ -1,5 +1,6 @@
 import 'package:ciaraos/providers/calendar_providers.dart';
 import 'package:ciaraos/providers/note_providers.dart';
+import 'package:ciaraos/providers/notification_providers.dart';
 import 'package:ciaraos/providers/onboarding_provider.dart';
 import 'package:ciaraos/providers/theme_provider.dart';
 import 'package:ciaraos/services/data_management_service.dart';
@@ -29,7 +30,11 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _notificationsEnabled = false;
+  bool _notificationsMaster = false;
+  bool _deadlineReminders = true;
+  TimeOfDay _dailyBriefTime = parseNotificationTime(defaultDailyBriefTime);
+  TimeOfDay _deepWorkNudgeTime =
+      parseNotificationTime(defaultDeepWorkNudgeTime);
   bool _prefsLoaded = false;
   late final TextEditingController _confirmController;
   bool _confirmError = false;
@@ -59,8 +64,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
     setState(() {
-      _notificationsEnabled =
-          prefs.getBool(notificationsEnabledPreferenceKey) ?? false;
+      _notificationsMaster =
+          prefs.getBool(notificationsMasterPreferenceKey) ??
+              prefs.getBool(notificationsEnabledPreferenceKey) ??
+              false;
+      _deadlineReminders =
+          prefs.getBool(deadlineRemindersPreferenceKey) ?? true;
+      _dailyBriefTime = parseNotificationTime(
+        prefs.getString(dailyBriefTimePreferenceKey) ?? defaultDailyBriefTime,
+      );
+      _deepWorkNudgeTime = parseNotificationTime(
+        prefs.getString(deepWorkNudgeTimePreferenceKey) ??
+            defaultDeepWorkNudgeTime,
+      );
       _profileTagline =
           prefs.getString(profileTaglinePreferenceKey) ?? defaultProfileTagline;
       _githubUsername =
@@ -75,17 +91,87 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await saveThemeMode(mode);
   }
 
-  Future<void> _toggleNotifications(bool value) async {
+  Future<void> _setNotificationsMaster(bool value) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(notificationsMasterPreferenceKey, value);
     await prefs.setBool(notificationsEnabledPreferenceKey, value);
-    setState(() => _notificationsEnabled = value);
-    if (value && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Notifications coming in a future update.'),
-        ),
-      );
+    setState(() => _notificationsMaster = value);
+
+    if (value) {
+      await ref.read(notificationServiceProvider).scheduleDailyBrief(
+            _dailyBriefTime,
+          );
+      await ref.read(notificationServiceProvider).scheduleDeepWorkNudge(
+            _deepWorkNudgeTime,
+          );
+      if (_deadlineReminders) {
+        await rescheduleAllDeadlineReminders(ref);
+      }
+    } else {
+      await cancelAllNotifications(ref);
     }
+  }
+
+  Future<void> _setDeadlineReminders(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(deadlineRemindersPreferenceKey, value);
+    setState(() => _deadlineReminders = value);
+
+    if (!_notificationsMaster) {
+      return;
+    }
+
+    if (value) {
+      await rescheduleAllDeadlineReminders(ref);
+    } else {
+      await ref
+          .read(notificationServiceProvider)
+          .cancelAllDeadlineNotifications();
+    }
+  }
+
+  Future<void> _pickDailyBriefTime() async {
+    if (!_notificationsMaster) {
+      return;
+    }
+
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _dailyBriefTime,
+    );
+    if (picked == null) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      dailyBriefTimePreferenceKey,
+      formatNotificationTime(picked),
+    );
+    setState(() => _dailyBriefTime = picked);
+    await ref.read(notificationServiceProvider).scheduleDailyBrief(picked);
+  }
+
+  Future<void> _pickDeepWorkNudgeTime() async {
+    if (!_notificationsMaster) {
+      return;
+    }
+
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _deepWorkNudgeTime,
+    );
+    if (picked == null) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      deepWorkNudgeTimePreferenceKey,
+      formatNotificationTime(picked),
+    );
+    setState(() => _deepWorkNudgeTime = picked);
+    await ref.read(notificationServiceProvider).scheduleDeepWorkNudge(picked);
   }
 
   Future<void> _saveGithubUsername() async {
@@ -341,11 +427,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: AppSpacing.reviewGap),
                 _SettingsSection(
                   label: 'NOTIFICATIONS',
-                  child: _SettingsSwitchRow(
-                    title: 'Deadline reminders',
-                    subtitle: 'Receive alerts for tasks due today',
-                    value: _notificationsEnabled,
-                    onChanged: _toggleNotifications,
+                  child: Opacity(
+                    opacity: _notificationsMaster ? 1 : 0.55,
+                    child: Column(
+                      children: [
+                        _SettingsSwitchRow(
+                          title: 'Enable Notifications',
+                          subtitle: 'Master switch for all Ciara OS alerts',
+                          value: _notificationsMaster,
+                          onChanged: _setNotificationsMaster,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _SettingsSwitchRow(
+                          title: 'Deadline reminders',
+                          subtitle:
+                              'Smart alerts at 3 days, 1 day, and day of',
+                          value: _deadlineReminders,
+                          enabled: _notificationsMaster,
+                          onChanged: _setDeadlineReminders,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _SettingsTimeRow(
+                          title: 'Daily Brief',
+                          value: formatNotificationTimeDisplay(_dailyBriefTime),
+                          enabled: _notificationsMaster,
+                          onTap: _pickDailyBriefTime,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        _SettingsTimeRow(
+                          title: 'Focus Nudge',
+                          value:
+                              formatNotificationTimeDisplay(_deepWorkNudgeTime),
+                          enabled: _notificationsMaster,
+                          onTap: _pickDeepWorkNudgeTime,
+                          subtitle:
+                              'Reminds you to start a focus session if none yet today',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.reviewGap),
@@ -677,12 +796,14 @@ class _SettingsSwitchRow extends StatelessWidget {
     required this.subtitle,
     required this.value,
     required this.onChanged,
+    this.enabled = true,
   });
 
   final String title;
   final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -712,9 +833,77 @@ class _SettingsSwitchRow extends StatelessWidget {
         ),
         Switch(
           value: value,
-          onChanged: onChanged,
+          onChanged: enabled ? onChanged : null,
         ),
       ],
+    );
+  }
+}
+
+class _SettingsTimeRow extends StatelessWidget {
+  const _SettingsTimeRow({
+    required this.title,
+    required this.value,
+    required this.onTap,
+    this.subtitle,
+    this.enabled = true,
+  });
+
+  final String title;
+  final String value;
+  final VoidCallback onTap;
+  final String? subtitle;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.bodyLarge.copyWith(
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      subtitle!,
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Text(
+              value,
+              style: AppTypography.labelLarge.copyWith(
+                color: enabled
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: colorScheme.onSurfaceVariant,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

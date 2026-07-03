@@ -1,6 +1,7 @@
 import 'package:ciaraos/models/enums/opportunity_status.dart';
 import 'package:ciaraos/models/enums/opportunity_type.dart';
 import 'package:ciaraos/models/opportunity.dart';
+import 'package:ciaraos/providers/notification_providers.dart';
 import 'package:ciaraos/providers/opportunity_providers.dart';
 import 'package:ciaraos/theme/app_colors.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
@@ -186,6 +187,13 @@ class _OpportunityCreateEditScreenState
         );
         await repository.update(opportunity.toCompanion());
         ref.invalidate(opportunityByIdProvider(opportunity.id));
+        await scheduleDeadlineIfEnabled(
+          ref,
+          id: opportunity.id,
+          title: opportunity.title,
+          type: 'opportunity',
+          deadline: opportunity.deadline,
+        );
       } else {
         final opportunity = Opportunity(
           id: 0,
@@ -203,7 +211,15 @@ class _OpportunityCreateEditScreenState
           createdAt: now,
           updatedAt: now,
         );
-        await repository.insert(opportunity.toCompanion(forInsert: true));
+        final newId =
+            await repository.insert(opportunity.toCompanion(forInsert: true));
+        await scheduleDeadlineIfEnabled(
+          ref,
+          id: newId,
+          title: title,
+          type: 'opportunity',
+          deadline: _selectedDeadline,
+        );
       }
 
       if (mounted) {
