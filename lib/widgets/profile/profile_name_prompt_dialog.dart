@@ -1,10 +1,10 @@
 import 'package:ciaraos/providers/onboarding_provider.dart';
 import 'package:ciaraos/providers/profile_providers.dart';
+import 'package:ciaraos/router/app_router.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 Future<void> showProfileNamePromptDialog(
   BuildContext context,
@@ -119,7 +119,11 @@ class _ProfileNameSetupGateState extends ConsumerState<ProfileNameSetupGate> {
       return;
     }
 
-    final location = GoRouterState.of(context).uri.path;
+    final configuration =
+        ref.read(routerProvider).routerDelegate.currentConfiguration;
+    final location = configuration.isEmpty
+        ? '/'
+        : configuration.last.matchedLocation;
     if (location == '/daily-brief') {
       return;
     }

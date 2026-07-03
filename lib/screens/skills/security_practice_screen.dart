@@ -603,12 +603,12 @@ class _H1ThresholdNotMet extends StatelessWidget {
         ? 'CRITICAL: Backend unreachable at localhost:8001'
         : invalidCreds
             ? 'CRITICAL: Invalid HackerOne API credentials'
-            : 'CRITICAL: H1_API_IDENTIFIER and H1_API_TOKEN not configured';
+            : 'CRITICAL: H1_USERNAME and H1_API_TOKEN not configured';
     final helpMessage = backendDown
         ? 'Start the Ciara OS backend before syncing HackerOne data.'
         : invalidCreds
-            ? 'Use your API token identifier as H1_API_IDENTIFIER (not your profile username) plus H1_API_TOKEN from HackerOne API settings.'
-            : 'Configure H1_API_IDENTIFIER and H1_API_TOKEN in the backend .env to track bounties, reports, and signal.';
+            ? 'Use your HackerOne username as H1_USERNAME and your personal API token as H1_API_TOKEN (Settings > API Token).'
+            : 'Configure H1_USERNAME and H1_API_TOKEN in the backend .env to track bounties, reports, and signal.';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -619,8 +619,8 @@ class _H1ThresholdNotMet extends StatelessWidget {
           errorMessage: errorMessage,
           helpMessage: helpMessage,
           envLines: const [
-            'H1_API_IDENTIFIER=your_token_identifier',
-            'H1_API_TOKEN=your_token_secret',
+            'H1_USERNAME=your_hackerone_username',
+            'H1_API_TOKEN=your_hackerone_api_token',
           ],
           onLogManual: onLogManual,
           onSync: backendDown ? onSync : null,

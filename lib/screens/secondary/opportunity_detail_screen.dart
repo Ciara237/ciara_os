@@ -317,63 +317,57 @@ class _OpportunityTopSection extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Flexible(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                  border: Border.all(color: statusColor),
-                ),
-                child: Text(
-                  opportunityTypeTagLabel(opportunity.type),
-                  style: AppTypography.labelSmall.copyWith(color: statusColor),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                border: Border.all(color: statusColor),
+              ),
+              child: Text(
+                opportunityTypeTagLabel(opportunity.type),
+                style: AppTypography.labelSmall.copyWith(color: statusColor),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ),
             if (isUrgent) ...[
-              const SizedBox(width: AppSpacing.sm),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      deadline.overline!,
-                      style: AppTypography.labelSmall.copyWith(
-                        color: colorScheme.error,
-                      ),
-                      textAlign: TextAlign.end,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+              const Spacer(),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    deadline.overline!,
+                    style: AppTypography.labelSmall.copyWith(
+                      color: colorScheme.error,
                     ),
-                    Text(
-                      deadline.headline!,
-                      style: AppTypography.headingLarge.copyWith(
-                        color: colorScheme.error,
-                      ),
-                      textAlign: TextAlign.end,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                  Text(
+                    deadline.headline!,
+                    style: AppTypography.headingLarge.copyWith(
+                      color: colorScheme.error,
                     ),
-                  ],
-                ),
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ],
               ),
             ] else if (deadline.quietDate != null) ...[
-              const SizedBox(width: AppSpacing.sm),
-              Flexible(
-                child: Text(
-                  deadline.quietDate!,
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.end,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+              const Spacer(),
+              Text(
+                deadline.quietDate!,
+                style: AppTypography.bodyMedium.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
+                textAlign: TextAlign.end,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ],
           ],

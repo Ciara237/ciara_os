@@ -5,26 +5,26 @@ import 'package:ciaraos/services/pdf/pdf_tokens.dart';
 import 'package:ciaraos/services/pdf/task_export_pdf_template.dart';
 import 'package:ciaraos/services/pdf/weekly_debrief_pdf_template.dart';
 import 'package:ciaraos/services/pdf_export_delivery.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 typedef FocusSession = FocusSessionRecord;
 
 class PdfExportService {
-  final _weeklyTemplate = WeeklyDebriefPdfTemplate();
-  final _taskTemplate = TaskExportPdfTemplate();
-
   Future<void> exportWeeklyReview({
     required WeeklyReview review,
     required List<Task> tasksThisWeek,
     required List<FocusSession> sessionsThisWeek,
+    required Brightness brightness,
   }) async {
+    final template = WeeklyDebriefPdfTemplate(brightness);
     final pdf = pw.Document(
       title: 'Ciara OS Weekly Review',
       creator: 'Ciara OS',
     );
 
-    for (final page in _weeklyTemplate.buildPages(
+    for (final page in template.buildPages(
       review: review,
       tasksThisWeek: tasksThisWeek,
       sessionsThisWeek: sessionsThisWeek,
@@ -41,7 +41,10 @@ class PdfExportService {
   Future<void> exportTasksBacklog({
     required List<Task> tasks,
     required String periodLabel,
+    required Brightness brightness,
   }) async {
+    final template = TaskExportPdfTemplate(brightness);
+    final palette = PdfThemePalette.fromBrightness(brightness);
     final pdf = pw.Document(
       title: 'Ciara OS Task Export',
       creator: 'Ciara OS',
@@ -49,8 +52,8 @@ class PdfExportService {
 
     pdf.addPage(
       pw.MultiPage(
-        pageTheme: PdfTokens.lightPageTheme(),
-        build: (context) => _taskTemplate.buildContent(
+        pageTheme: PdfTokens.pageTheme(palette),
+        build: (context) => template.buildContent(
           tasks: tasks,
           periodLabel: periodLabel,
         ),

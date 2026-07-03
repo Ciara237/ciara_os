@@ -66,6 +66,8 @@ class TasksFilterBar extends ConsumerWidget {
   }
 
   Future<void> _exportTasksPdf(BuildContext context, WidgetRef ref) async {
+    final brightness = Theme.of(context).brightness;
+
     try {
       final tasks =
           ref.read(filteredTasksProvider).asData?.value ?? const <Task>[];
@@ -73,6 +75,7 @@ class TasksFilterBar extends ConsumerWidget {
       await ref.read(pdfExportServiceProvider).exportTasksBacklog(
             tasks: tasks,
             periodLabel: periodLabel,
+            brightness: brightness,
           );
     } catch (error) {
       if (context.mounted) {

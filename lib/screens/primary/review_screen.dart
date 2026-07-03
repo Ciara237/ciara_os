@@ -146,6 +146,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   }
 
   Future<void> _exportWeeklyReviewPdf() async {
+    final brightness = Theme.of(context).brightness;
+
     try {
       final review = await _buildReviewForExport();
       final tasks = await ref.read(weekTasksProvider(review.weekOf).future);
@@ -156,6 +158,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             review: review,
             tasksThisWeek: tasks,
             sessionsThisWeek: sessions,
+            brightness: brightness,
           );
     } catch (error) {
       if (mounted) {

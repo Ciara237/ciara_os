@@ -2,7 +2,7 @@ import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
-/// Stitch `export_bottom_sheet_ciara_os_dark` — export format picker.
+/// Export format picker — follows the active app/system theme.
 class ExportOption {
   const ExportOption({
     required this.title,
@@ -22,13 +22,18 @@ Future<void> showCiaraExportSheet({
   String overline = 'EXPORT REPORT',
   required List<ExportOption> options,
 }) {
+  final theme = Theme.of(context);
+
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (sheetContext) => ExportBottomSheet(
-      overline: overline,
-      options: options,
+    builder: (sheetContext) => Theme(
+      data: theme,
+      child: ExportBottomSheet(
+        overline: overline,
+        options: options,
+      ),
     ),
   );
 }

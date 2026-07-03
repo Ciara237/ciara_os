@@ -7,12 +7,18 @@ import 'package:ciaraos/services/pdf/pdf_tokens.dart';
 import 'package:ciaraos/utils/deep_work_utils.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
 import 'package:ciaraos/utils/review_stats_utils.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-/// Stitch `weekly_executive_debrief_template` — dark premium PDF layout.
+/// Weekly executive debrief PDF — palette follows app/system brightness.
 class WeeklyDebriefPdfTemplate {
+  WeeklyDebriefPdfTemplate(Brightness brightness)
+      : _palette = PdfThemePalette.fromBrightness(brightness);
+
+  final PdfThemePalette _palette;
+
   List<pw.Page> buildPages({
     required WeeklyReview review,
     required List<Task> tasksThisWeek,
@@ -40,11 +46,11 @@ class WeeklyDebriefPdfTemplate {
     final focusLabel = formatFocusUptime(focusSeconds);
 
     return pw.Page(
-      pageTheme: PdfTokens.darkPageTheme(),
+      pageTheme: PdfTokens.pageTheme(_palette),
       build: (context) => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          _darkHeader(review.weekOf),
+          _header(review.weekOf),
           pw.SizedBox(height: 28),
           pw.Row(
             children: [
@@ -60,7 +66,7 @@ class WeeklyDebriefPdfTemplate {
           pw.SizedBox(height: 10),
           _surfaceCard(
             review.weeklyNarrative ?? 'No narrative recorded.',
-            PdfTokens.darkOnSurfaceVariant,
+            _palette.onSurfaceVariant,
           ),
           pw.SizedBox(height: 16),
           _reflectionCard(
@@ -81,7 +87,7 @@ class WeeklyDebriefPdfTemplate {
             accent: PdfTokens.blue,
           ),
           pw.Spacer(),
-          _darkFooter(),
+          _footer(),
         ],
       ),
     );
@@ -89,19 +95,19 @@ class WeeklyDebriefPdfTemplate {
 
   pw.Page _taskBreakdownPage(DateTime weekOf, List<Task> tasks) {
     return pw.Page(
-      pageTheme: PdfTokens.darkPageTheme(),
+      pageTheme: PdfTokens.pageTheme(_palette),
       build: (context) {
         if (tasks.isEmpty) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-              _darkHeader(weekOf),
+              _header(weekOf),
               pw.SizedBox(height: 20),
               _monoLabel('TASK BREAKDOWN THIS WEEK'),
               pw.SizedBox(height: 12),
-              _bodyText('No tasks recorded for this week.', PdfTokens.darkOnSurfaceVariant),
+              _bodyText('No tasks recorded for this week.', _palette.onSurfaceVariant),
               pw.Spacer(),
-              _darkFooter(),
+              _footer(),
             ],
           );
         }
@@ -115,7 +121,7 @@ class WeeklyDebriefPdfTemplate {
         return pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            _darkHeader(weekOf),
+            _header(weekOf),
             pw.SizedBox(height: 20),
             _monoLabel('TASK BREAKDOWN THIS WEEK'),
             pw.SizedBox(height: 14),
@@ -130,7 +136,7 @@ class WeeklyDebriefPdfTemplate {
               ];
             }),
             pw.Spacer(),
-            _darkFooter(),
+            _footer(),
           ],
         );
       },
@@ -141,16 +147,16 @@ class WeeklyDebriefPdfTemplate {
     final actions = review.nextActions;
 
     return pw.Page(
-      pageTheme: PdfTokens.darkPageTheme(),
+      pageTheme: PdfTokens.pageTheme(_palette),
       build: (context) => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          _darkHeader(review.weekOf),
+          _header(review.weekOf),
           pw.SizedBox(height: 20),
           _monoLabel('NEXT WEEK PRIORITIES'),
           pw.SizedBox(height: 14),
           if (actions.isEmpty)
-            _bodyText('No next actions recorded.', PdfTokens.darkOnSurfaceVariant)
+            _bodyText('No next actions recorded.', _palette.onSurfaceVariant)
           else
             ...actions.map(
               (action) => pw.Padding(
@@ -163,25 +169,25 @@ class WeeklyDebriefPdfTemplate {
                       style: pw.TextStyle(
                         font: PdfTokens.bodyFont,
                         fontSize: 11,
-                        color: PdfTokens.darkPrimary,
+                        color: _palette.primary,
                       ),
                     ),
                     pw.SizedBox(width: 8),
                     pw.Expanded(
-                      child: _bodyText(action, PdfTokens.darkOnSurfaceVariant),
+                      child: _bodyText(action, _palette.onSurfaceVariant),
                     ),
                   ],
                 ),
               ),
             ),
           pw.Spacer(),
-          _darkFooter(),
+          _footer(),
         ],
       ),
     );
   }
 
-  pw.Widget _darkHeader(DateTime weekOf) {
+  pw.Widget _header(DateTime weekOf) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
@@ -194,7 +200,7 @@ class WeeklyDebriefPdfTemplate {
               style: pw.TextStyle(
                 font: PdfTokens.monoBold,
                 fontSize: 14,
-                color: PdfTokens.darkOnSurface,
+                color: _palette.onSurface,
               ),
             ),
             pw.Text(
@@ -202,20 +208,20 @@ class WeeklyDebriefPdfTemplate {
               style: pw.TextStyle(
                 font: PdfTokens.bodyFont,
                 fontSize: 11,
-                color: PdfTokens.darkOnSurfaceMuted,
+                color: _palette.onSurfaceMuted,
               ),
             ),
           ],
         ),
         pw.SizedBox(height: 10),
-        pw.Container(height: 1, color: PdfTokens.darkDivider),
+        pw.Container(height: 1, color: _palette.divider),
         pw.SizedBox(height: 10),
         pw.Text(
           PdfTokens.sanitize(reviewWeekRangeLabel(weekOf)),
           style: pw.TextStyle(
             font: PdfTokens.monoFont,
             fontSize: 10,
-            color: PdfTokens.darkOnSurfaceMuted,
+            color: _palette.onSurfaceMuted,
           ),
         ),
       ],
@@ -226,7 +232,7 @@ class WeeklyDebriefPdfTemplate {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(vertical: 18, horizontal: 8),
       decoration: pw.BoxDecoration(
-        color: PdfTokens.darkSurfaceElevated,
+        color: _palette.surfaceElevated,
         borderRadius: pw.BorderRadius.circular(8),
       ),
       child: pw.Column(
@@ -239,7 +245,7 @@ class WeeklyDebriefPdfTemplate {
                   style: pw.TextStyle(
                     font: PdfTokens.bodyBold,
                     fontSize: 28,
-                    color: PdfTokens.darkOnSurface,
+                    color: _palette.onSurface,
                   ),
                 ),
                 if (suffix != null)
@@ -248,7 +254,7 @@ class WeeklyDebriefPdfTemplate {
                     style: pw.TextStyle(
                       font: PdfTokens.bodyFont,
                       fontSize: 14,
-                      color: PdfTokens.darkOnSurfaceMuted,
+                      color: _palette.onSurfaceMuted,
                     ),
                   ),
               ],
@@ -260,7 +266,7 @@ class WeeklyDebriefPdfTemplate {
             style: pw.TextStyle(
               font: PdfTokens.monoFont,
               fontSize: 8,
-              color: PdfTokens.darkOnSurfaceMuted,
+              color: _palette.onSurfaceMuted,
             ),
             textAlign: pw.TextAlign.center,
           ),
@@ -275,7 +281,7 @@ class WeeklyDebriefPdfTemplate {
       style: pw.TextStyle(
         font: PdfTokens.monoBold,
         fontSize: 9,
-        color: PdfTokens.darkOnSurfaceMuted,
+        color: _palette.onSurfaceMuted,
         letterSpacing: 1,
       ),
     );
@@ -286,7 +292,7 @@ class WeeklyDebriefPdfTemplate {
       width: double.infinity,
       padding: const pw.EdgeInsets.all(18),
       decoration: pw.BoxDecoration(
-        color: PdfTokens.darkSurfaceCard,
+        color: _palette.surfaceCard,
         borderRadius: pw.BorderRadius.circular(8),
       ),
       child: pw.Text(
@@ -308,25 +314,34 @@ class WeeklyDebriefPdfTemplate {
   }) {
     return pw.Container(
       width: double.infinity,
-      padding: const pw.EdgeInsets.all(14),
       decoration: pw.BoxDecoration(
-        color: PdfTokens.darkSurfaceCard,
+        color: _palette.surfaceCard,
         borderRadius: pw.BorderRadius.circular(8),
-        border: pw.Border(left: pw.BorderSide(color: accent, width: 4)),
       ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          pw.Text(
-            PdfTokens.sanitize(label),
-            style: pw.TextStyle(
-              font: PdfTokens.monoBold,
-              fontSize: 9,
-              color: accent,
+          pw.Container(width: 4, color: accent),
+          pw.Expanded(
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.all(14),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    PdfTokens.sanitize(label),
+                    style: pw.TextStyle(
+                      font: PdfTokens.monoBold,
+                      fontSize: 9,
+                      color: accent,
+                    ),
+                  ),
+                  pw.SizedBox(height: 6),
+                  _bodyText(body, _palette.onSurfaceVariant),
+                ],
+              ),
             ),
           ),
-          pw.SizedBox(height: 6),
-          _bodyText(body, PdfTokens.darkOnSurfaceVariant),
         ],
       ),
     );
@@ -334,28 +349,41 @@ class WeeklyDebriefPdfTemplate {
 
   pw.Widget _domainHeader(String domain, int count, PdfColor accent) {
     return pw.Container(
-      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: pw.BoxDecoration(
-        color: PdfTokens.darkSurfaceElevated,
-        border: pw.Border(left: pw.BorderSide(color: accent, width: 4)),
+        color: _palette.surfaceElevated,
+        borderRadius: pw.BorderRadius.circular(4),
       ),
       child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
-          pw.Text(
-            PdfTokens.sanitize(domain),
-            style: pw.TextStyle(
-              font: PdfTokens.monoBold,
-              fontSize: 10,
-              color: accent,
-            ),
-          ),
-          pw.Text(
-            '$count TASKS',
-            style: pw.TextStyle(
-              font: PdfTokens.monoFont,
-              fontSize: 9,
-              color: PdfTokens.darkOnSurfaceMuted,
+          pw.Container(width: 4, color: accent),
+          pw.Expanded(
+            child: pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    PdfTokens.sanitize(domain),
+                    style: pw.TextStyle(
+                      font: PdfTokens.monoBold,
+                      fontSize: 10,
+                      color: accent,
+                    ),
+                  ),
+                  pw.Text(
+                    '$count TASKS',
+                    style: pw.TextStyle(
+                      font: PdfTokens.monoFont,
+                      fontSize: 9,
+                      color: _palette.onSurfaceMuted,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -367,7 +395,7 @@ class WeeklyDebriefPdfTemplate {
     final headerStyle = pw.TextStyle(
       font: PdfTokens.monoBold,
       fontSize: 8,
-      color: PdfTokens.darkOnSurfaceMuted,
+      color: _palette.onSurfaceMuted,
     );
 
     return pw.Table(
@@ -379,7 +407,7 @@ class WeeklyDebriefPdfTemplate {
       },
       children: [
         pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfTokens.darkSurfaceCard),
+          decoration: pw.BoxDecoration(color: _palette.surfaceCard),
           children: [
             _headerCell('TASK', headerStyle),
             _headerCell('PRIORITY', headerStyle),
@@ -390,13 +418,16 @@ class WeeklyDebriefPdfTemplate {
         ...tasks.asMap().entries.map((entry) {
           final task = entry.value;
           final bg = entry.key.isOdd
-              ? PdfTokens.darkSurfaceCard
-              : PdfTokens.darkSurfaceRowAlt;
+              ? _palette.surfaceCard
+              : _palette.surfaceRowAlt;
           final priorityColor = PdfTokens.priorityColor(task.priority);
-          final statusColor = PdfTokens.statusColor(task.status);
+          final statusColor = PdfTokens.statusColor(
+            task.status,
+            neutral: _palette.onSurfaceMuted,
+          );
           final accuracy = formatPlanningAccuracy(task.planningAccuracy);
           final accuracyColor = task.planningAccuracy == null
-              ? PdfTokens.darkOnSurfaceMuted
+              ? _palette.onSurfaceMuted
               : (task.planningAccuracy! >= 0.85
                   ? PdfTokens.green
                   : (task.planningAccuracy! >= 0.7
@@ -404,12 +435,9 @@ class WeeklyDebriefPdfTemplate {
                       : PdfTokens.red));
 
           return pw.TableRow(
-            decoration: pw.BoxDecoration(
-              color: bg,
-              border: pw.Border(left: pw.BorderSide(color: accent, width: 1)),
-            ),
+            decoration: pw.BoxDecoration(color: bg),
             children: [
-              _dataCell(task.title, PdfTokens.darkOnSurfaceVariant),
+              _dataCell(task.title, _palette.onSurfaceVariant),
               _dataCell(
                 PdfTokens.priorityLabel(task.priority),
                 priorityColor,
@@ -456,19 +484,19 @@ class WeeklyDebriefPdfTemplate {
     );
   }
 
-  pw.Widget _darkFooter() {
+  pw.Widget _footer() {
     final generated = DateFormat('MMMM d, yyyy').format(DateTime.now());
 
     return pw.Column(
       children: [
-        pw.Container(height: 1, color: PdfTokens.darkDivider),
+        pw.Container(height: 1, color: _palette.divider),
         pw.SizedBox(height: 10),
         pw.Text(
           'CIARA OS v1.0.0 | Generated $generated | Private & confidential',
           style: pw.TextStyle(
             font: PdfTokens.monoFont,
             fontSize: 8,
-            color: PdfTokens.darkFooter,
+            color: _palette.footer,
           ),
           textAlign: pw.TextAlign.center,
         ),

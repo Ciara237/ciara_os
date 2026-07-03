@@ -3,25 +3,31 @@ import 'package:ciaraos/models/enums/task_status.dart';
 import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/services/pdf/pdf_tokens.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-/// Stitch `task_export_template_light_professional` — light PDF layout.
+/// Task backlog PDF export — palette follows app/system brightness.
 class TaskExportPdfTemplate {
+  TaskExportPdfTemplate(Brightness brightness)
+      : _palette = PdfThemePalette.fromBrightness(brightness);
+
+  final PdfThemePalette _palette;
+
   List<pw.Widget> buildContent({
     required List<Task> tasks,
     required String periodLabel,
   }) {
     final widgets = <pw.Widget>[
-      _lightHeader(periodLabel),
+      _header(periodLabel),
       pw.SizedBox(height: 24),
     ];
 
     if (tasks.isEmpty) {
       widgets.add(_bodyText('No tasks to export.'));
       widgets.add(pw.SizedBox(height: 24));
-      widgets.add(_lightFooter());
+      widgets.add(_footer());
       return widgets;
     }
 
@@ -59,7 +65,7 @@ class TaskExportPdfTemplate {
     }
 
     widgets.add(pw.SizedBox(height: 20));
-    widgets.add(_lightFooter());
+    widgets.add(_footer());
     return widgets;
   }
 
@@ -78,29 +84,41 @@ class TaskExportPdfTemplate {
 
     return [
       pw.Container(
-        padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: pw.BoxDecoration(
-          color: PdfTokens.lightDomainHeaderBg,
-          border: pw.Border(left: pw.BorderSide(color: accent, width: 4)),
+          color: _palette.domainHeaderBg,
           borderRadius: pw.BorderRadius.circular(4),
         ),
         child: pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            pw.Text(
-              PdfTokens.sanitize(domainLabel(domain)),
-              style: pw.TextStyle(
-                font: PdfTokens.monoBold,
-                fontSize: 10,
-                color: accent,
-              ),
-            ),
-            pw.Text(
-              '${tasks.length} TASKS',
-              style: pw.TextStyle(
-                font: PdfTokens.bodyFont,
-                fontSize: 9,
-                color: PdfTokens.lightMuted,
+            pw.Container(width: 4, color: accent),
+            pw.Expanded(
+              child: pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      PdfTokens.sanitize(domainLabel(domain)),
+                      style: pw.TextStyle(
+                        font: PdfTokens.monoBold,
+                        fontSize: 10,
+                        color: accent,
+                      ),
+                    ),
+                    pw.Text(
+                      '${tasks.length} TASKS',
+                      style: pw.TextStyle(
+                        font: PdfTokens.bodyFont,
+                        fontSize: 9,
+                        color: _palette.onSurfaceMuted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -116,7 +134,7 @@ class TaskExportPdfTemplate {
         },
         children: [
           pw.TableRow(
-            decoration: const pw.BoxDecoration(color: PdfTokens.lightSummaryBg),
+            decoration: pw.BoxDecoration(color: _palette.summaryBg),
             children: [
               _headerCell('TASK'),
               _headerCell('PRIORITY'),
@@ -127,7 +145,7 @@ class TaskExportPdfTemplate {
           ...tasks.asMap().entries.map((entry) {
             final task = entry.value;
             final bg =
-                entry.key.isOdd ? PdfTokens.lightRowAlt : PdfTokens.lightBg;
+                entry.key.isOdd ? _palette.rowAlt : _palette.bg;
             final deadline = task.deadline == null
                 ? '-'
                 : dateFormat(task.deadline!).toUpperCase();
@@ -136,14 +154,11 @@ class TaskExportPdfTemplate {
                 task.status != TaskStatus.done;
 
             return pw.TableRow(
-              decoration: pw.BoxDecoration(
-                color: bg,
-                border: pw.Border(left: pw.BorderSide(color: accent, width: 2)),
-              ),
+              decoration: pw.BoxDecoration(color: bg),
               children: [
                 _dataCell(
                   task.title,
-                  PdfTokens.lightOnSurface,
+                  _palette.onSurface,
                   bold: true,
                 ),
                 _dataCell(
@@ -152,12 +167,15 @@ class TaskExportPdfTemplate {
                 ),
                 _dataCell(
                   PdfTokens.statusLabel(task.status),
-                  PdfTokens.statusColor(task.status),
+                  PdfTokens.statusColor(
+                    task.status,
+                    neutral: _palette.onSurfaceMuted,
+                  ),
                   bold: task.status == TaskStatus.stuck,
                 ),
                 _dataCell(
                   isOverdue ? 'OVERDUE' : deadline,
-                  isOverdue ? PdfTokens.red : PdfTokens.lightMuted,
+                  isOverdue ? PdfTokens.red : _palette.onSurfaceMuted,
                   bold: isOverdue,
                 ),
               ],
@@ -169,13 +187,13 @@ class TaskExportPdfTemplate {
       pw.Container(
         width: double.infinity,
         padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        color: PdfTokens.lightSummaryBg,
+        color: _palette.summaryBg,
         child: pw.Text(
           '$completed completed | $inProgress in progress | $stuck stuck',
           style: pw.TextStyle(
             font: PdfTokens.monoFont,
             fontSize: 8,
-            color: PdfTokens.lightMuted,
+            color: _palette.onSurfaceMuted,
           ),
           textAlign: pw.TextAlign.right,
         ),
@@ -184,7 +202,7 @@ class TaskExportPdfTemplate {
     ];
   }
 
-  pw.Widget _lightHeader(String periodLabel) {
+  pw.Widget _header(String periodLabel) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
@@ -197,7 +215,7 @@ class TaskExportPdfTemplate {
               style: pw.TextStyle(
                 font: PdfTokens.monoBold,
                 fontSize: 14,
-                color: PdfTokens.lightOnSurface,
+                color: _palette.onSurface,
               ),
             ),
             pw.Text(
@@ -205,20 +223,20 @@ class TaskExportPdfTemplate {
               style: pw.TextStyle(
                 font: PdfTokens.bodyFont,
                 fontSize: 11,
-                color: PdfTokens.lightMuted,
+                color: _palette.onSurfaceMuted,
               ),
             ),
           ],
         ),
         pw.SizedBox(height: 8),
-        pw.Container(height: 1, color: PdfTokens.lightDivider),
+        pw.Container(height: 1, color: _palette.divider),
         pw.SizedBox(height: 8),
         pw.Text(
           PdfTokens.sanitize(periodLabel),
           style: pw.TextStyle(
             font: PdfTokens.monoFont,
             fontSize: 9,
-            color: PdfTokens.lightMuted,
+            color: _palette.onSurfaceMuted,
           ),
         ),
       ],
@@ -229,8 +247,8 @@ class TaskExportPdfTemplate {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: pw.BoxDecoration(
-        color: PdfTokens.lightSummaryBg,
-        border: pw.Border.all(color: PdfTokens.lightSummaryBorder),
+        color: _palette.summaryBg,
+        border: pw.Border.all(color: _palette.summaryBorder),
         borderRadius: pw.BorderRadius.circular(8),
       ),
       child: pw.Column(
@@ -240,7 +258,7 @@ class TaskExportPdfTemplate {
             style: pw.TextStyle(
               font: PdfTokens.bodyBold,
               fontSize: 20,
-              color: PdfTokens.lightOnSurface,
+              color: _palette.onSurface,
             ),
           ),
           pw.SizedBox(height: 4),
@@ -249,7 +267,7 @@ class TaskExportPdfTemplate {
             style: pw.TextStyle(
               font: PdfTokens.monoFont,
               fontSize: 8,
-              color: PdfTokens.lightMuted,
+              color: _palette.onSurfaceMuted,
             ),
           ),
         ],
@@ -265,7 +283,7 @@ class TaskExportPdfTemplate {
         style: pw.TextStyle(
           font: PdfTokens.monoBold,
           fontSize: 8,
-          color: PdfTokens.lightMuted,
+          color: _palette.onSurfaceMuted,
         ),
       ),
     );
@@ -295,24 +313,24 @@ class TaskExportPdfTemplate {
       style: pw.TextStyle(
         font: PdfTokens.bodyFont,
         fontSize: 11,
-        color: PdfTokens.lightOnSurface,
+        color: _palette.onSurface,
       ),
     );
   }
 
-  pw.Widget _lightFooter() {
+  pw.Widget _footer() {
     final generated = DateFormat('MMMM d, yyyy').format(DateTime.now());
 
     return pw.Column(
       children: [
-        pw.Container(height: 1, color: PdfTokens.lightDivider),
+        pw.Container(height: 1, color: _palette.divider),
         pw.SizedBox(height: 10),
         pw.Text(
           'Ciara OS v1.0.0 | Generated $generated | Private & confidential',
           style: pw.TextStyle(
             font: PdfTokens.monoFont,
             fontSize: 8,
-            color: PdfTokens.lightMuted,
+            color: _palette.footer,
           ),
           textAlign: pw.TextAlign.center,
         ),
