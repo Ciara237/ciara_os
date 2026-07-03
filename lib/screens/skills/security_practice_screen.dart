@@ -18,7 +18,8 @@ _SecurityDataState _resolveSecurityState({
   required bool hasProfile,
 }) {
   if (availability == SecurityEndpointAvailability.notConfigured ||
-      availability == SecurityEndpointAvailability.backendUnreachable) {
+      availability == SecurityEndpointAvailability.backendUnreachable ||
+      availability == SecurityEndpointAvailability.invalidCredentials) {
     return _SecurityDataState.thresholdNotMet;
   }
   if (hasProfile) {
@@ -367,12 +368,18 @@ class _HtbThresholdNotMet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backendDown = !probe.backendHealthy;
+    final invalidCreds =
+        probe.htb == SecurityEndpointAvailability.invalidCredentials;
     final errorMessage = backendDown
         ? 'CRITICAL: Backend unreachable at localhost:8001'
-        : 'CRITICAL: HTB_API_KEY not configured';
+        : invalidCreds
+            ? 'CRITICAL: Invalid HackTheBox API key'
+            : 'CRITICAL: HTB_API_KEY not configured';
     final helpMessage = backendDown
         ? 'Start the Ciara OS backend (uvicorn) before syncing HackTheBox data.'
-        : 'Add your HackTheBox API key to the backend .env file to sync your profile, owned machines, and rank.';
+        : invalidCreds
+            ? 'Regenerate your app token at app.hackthebox.com and update HTB_API_KEY in the backend .env.'
+            : 'Add your HackTheBox API key to the backend .env file to sync your profile, owned machines, and rank.';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -590,12 +597,18 @@ class _H1ThresholdNotMet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backendDown = !probe.backendHealthy;
+    final invalidCreds =
+        probe.h1 == SecurityEndpointAvailability.invalidCredentials;
     final errorMessage = backendDown
         ? 'CRITICAL: Backend unreachable at localhost:8001'
-        : 'CRITICAL: H1_USERNAME and H1_API_TOKEN not configured';
+        : invalidCreds
+            ? 'CRITICAL: Invalid HackerOne API credentials'
+            : 'CRITICAL: H1_API_IDENTIFIER and H1_API_TOKEN not configured';
     final helpMessage = backendDown
         ? 'Start the Ciara OS backend before syncing HackerOne data.'
-        : 'Configure your HackerOne username and API token in the backend .env to track bounties, reports, and signal.';
+        : invalidCreds
+            ? 'Use your API token identifier as H1_API_IDENTIFIER (not your profile username) plus H1_API_TOKEN from HackerOne API settings.'
+            : 'Configure H1_API_IDENTIFIER and H1_API_TOKEN in the backend .env to track bounties, reports, and signal.';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -606,8 +619,8 @@ class _H1ThresholdNotMet extends StatelessWidget {
           errorMessage: errorMessage,
           helpMessage: helpMessage,
           envLines: const [
-            'H1_USERNAME=your_username',
-            'H1_API_TOKEN=your_token_here',
+            'H1_API_IDENTIFIER=your_token_identifier',
+            'H1_API_TOKEN=your_token_secret',
           ],
           onLogManual: onLogManual,
           onSync: backendDown ? onSync : null,
@@ -768,7 +781,7 @@ class _HtbProfileCard extends StatelessWidget {
                 value: '${profile.challengesSolved}',
               ),
               _StatItem(
-                label: 'Global Rank',
+                label: 'Leaderboard',
                 value: profile.globalRank > 0
                     ? '#${_formatRank(profile.globalRank)}'
                     : '—',

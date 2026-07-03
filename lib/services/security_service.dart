@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 enum SecurityEndpointAvailability {
   available,
   notConfigured,
+  invalidCredentials,
   backendUnreachable,
   error,
 }
@@ -50,6 +51,9 @@ class SecurityService {
       if (response.statusCode == 200) {
         return SecurityEndpointAvailability.available;
       }
+      if (response.statusCode == 401) {
+        return SecurityEndpointAvailability.invalidCredentials;
+      }
       if (response.statusCode == 503) {
         return SecurityEndpointAvailability.notConfigured;
       }
@@ -81,11 +85,12 @@ class SecurityService {
     );
   }
 
-  Future<HackTheBoxProfile?> fetchHackTheBox() async {
+  Future<HackTheBoxProfile?> fetchHackTheBox({bool force = false}) async {
     try {
-      final response = await http
-          .get(Uri.parse('$_baseUrl/api/security/hackthebox'))
-          .timeout(const Duration(seconds: 25));
+      final uri = Uri.parse('$_baseUrl/api/security/hackthebox').replace(
+        queryParameters: force ? {'force': 'true'} : null,
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final profile = HackTheBoxProfile.fromJson(
@@ -100,11 +105,12 @@ class SecurityService {
     }
   }
 
-  Future<HackerOneProfile?> fetchHackerOne() async {
+  Future<HackerOneProfile?> fetchHackerOne({bool force = false}) async {
     try {
-      final response = await http
-          .get(Uri.parse('$_baseUrl/api/security/hackerone'))
-          .timeout(const Duration(seconds: 25));
+      final uri = Uri.parse('$_baseUrl/api/security/hackerone').replace(
+        queryParameters: force ? {'force': 'true'} : null,
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final profile = HackerOneProfile.fromJson(

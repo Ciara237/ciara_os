@@ -59,7 +59,7 @@ class HackTheBoxNotifier extends Notifier<AsyncValue<HackTheBoxProfile?>> {
 
     try {
       final profile =
-          await ref.read(securityServiceProvider).fetchHackTheBox();
+          await ref.read(securityServiceProvider).fetchHackTheBox(force: true);
       if (profile != null) {
         _lastSynced = DateTime.now();
         state = AsyncValue.data(profile);
@@ -123,7 +123,7 @@ class HackerOneNotifier extends Notifier<AsyncValue<HackerOneProfile?>> {
 
     try {
       final profile =
-          await ref.read(securityServiceProvider).fetchHackerOne();
+          await ref.read(securityServiceProvider).fetchHackerOne(force: true);
       if (profile != null) {
         _lastSynced = DateTime.now();
         state = AsyncValue.data(profile);

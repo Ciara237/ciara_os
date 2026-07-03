@@ -1,4 +1,3 @@
-import 'package:ciaraos/theme/app_colors.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:flutter/material.dart';
@@ -75,7 +74,7 @@ class _ExportBottomSheetState extends State<ExportBottomSheet> {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceContainerLow,
+        color: colorScheme.surfaceContainerLow,
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(32),
         ),
@@ -169,7 +168,7 @@ class _ExportOptionCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Material(
-      color: AppColors.darkSurfaceContainerHigh,
+      color: colorScheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       child: InkWell(
         onTap: onTap,
