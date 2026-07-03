@@ -32,29 +32,22 @@ class GitHubActivityNotifier extends Notifier<AsyncValue<GitHubActivity?>> {
     }
 
     _syncInProgress = true;
-    final username = ref.read(profileProvider).githubUsername;
 
     try {
+      await ref.read(profileProvider.notifier).reload();
+      final username = ref.read(profileProvider).githubUsername;
+
       final activity = await ref.read(githubServiceProvider).fetchActivity(
             username: username,
             force: force,
           );
-      if (activity != null) {
-        _lastSynced = DateTime.now();
-        state = AsyncValue.data(activity);
-      } else if (previous != null) {
-        state = AsyncValue.data(previous);
-      } else {
-        state = const AsyncValue.data(null);
-      }
-    } on GitHubRateLimitException {
+      _lastSynced = DateTime.now();
+      state = AsyncValue.data(activity);
+    } on GitHubFetchException catch (error, stackTrace) {
       if (previous != null) {
         state = AsyncValue.data(previous);
       } else {
-        state = AsyncValue.error(
-          'GitHub rate limit hit. Try again later or add GITHUB_TOKEN to the backend.',
-          StackTrace.current,
-        );
+        state = AsyncValue.error(error.message, stackTrace);
       }
     } catch (error, stackTrace) {
       if (previous != null) {

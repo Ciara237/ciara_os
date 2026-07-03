@@ -66,7 +66,7 @@ class _GitHubActivityScreenState extends ConsumerState<GitHubActivityScreen> {
           const SizedBox(height: AppSpacing.lg),
           activityAsync.when(
             loading: () => const _LoadingBody(),
-            error: (_, _) => const _ErrorBody(),
+            error: (error, _) => _ErrorBody(message: error.toString()),
             data: (activity) {
               if (activity == null) {
                 return const _EmptyBody();
@@ -201,7 +201,9 @@ class _EmptyBody extends StatelessWidget {
 }
 
 class _ErrorBody extends StatelessWidget {
-  const _ErrorBody();
+  const _ErrorBody({this.message});
+
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -210,7 +212,9 @@ class _ErrorBody extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
       child: Text(
-        'Could not reach the GitHub activity backend. Check that the server is running.',
+        message ??
+            'Could not reach the GitHub activity backend. '
+                'Check that uvicorn is running on port 8001.',
         textAlign: TextAlign.center,
         style: AppTypography.bodyMedium.copyWith(
           color: colorScheme.error,
@@ -490,6 +494,13 @@ class _RecentCommitsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final newest = commits.isEmpty
+        ? null
+        : commits
+            .map((commit) => commit.date)
+            .reduce((a, b) => a.isAfter(b) ? a : b);
+    final isStale = newest != null &&
+        DateTime.now().difference(newest.toLocal()) > const Duration(hours: 24);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -501,6 +512,30 @@ class _RecentCommitsSection extends StatelessWidget {
             letterSpacing: 1.5,
           ),
         ),
+        if (isStale) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: colorScheme.tertiaryContainer.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: colorScheme.outlineVariant.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Text(
+              'Latest commit on GitHub is from '
+              '${relativeTimeLabel(newest.toLocal())}. '
+              'Only pushed commits appear here — local work is not synced to GitHub.',
+              style: AppTypography.bodyMedium.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: AppSpacing.md),
         if (commits.isEmpty)
           Text(

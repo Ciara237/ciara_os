@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 abstract final class AiServiceConfig {
   static const String baseUrl = String.fromEnvironment(
     'CIARA_AI_BACKEND_URL',
-    defaultValue: 'http://localhost:8001',
+    defaultValue: 'http://127.0.0.1:8001',
   );
 }
 

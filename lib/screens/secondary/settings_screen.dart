@@ -1,3 +1,4 @@
+import 'package:ciaraos/providers/github_providers.dart';
 import 'package:ciaraos/providers/note_providers.dart';
 import 'package:ciaraos/providers/onboarding_provider.dart';
 import 'package:ciaraos/providers/theme_provider.dart';
@@ -98,6 +99,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
 
     await ref.read(profileProvider.notifier).saveGithubUsername(normalized);
+    await ref.read(githubActivityProvider.notifier).sync(force: true);
     if (!mounted) {
       return;
     }
