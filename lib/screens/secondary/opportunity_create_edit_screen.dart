@@ -208,6 +208,7 @@ class _OpportunityCreateEditScreenState
           documentsTotal: _documents.length,
           documentsReady: documentsReady,
           link: link.isEmpty ? null : link,
+          leadQuality: _leadQuality,
           createdAt: now,
           updatedAt: now,
         );
@@ -452,6 +453,14 @@ class _OpportunityCreateEditScreenState
                     onClear: _selectedDeadline == null
                         ? null
                         : () => setState(() => _selectedDeadline = null),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  const _FormFieldLabel(text: 'LEAD QUALITY'),
+                  const SizedBox(height: AppSpacing.sm),
+                  _LeadQualitySelector(
+                    value: _leadQuality,
+                    onChanged: (rating) =>
+                        setState(() => _leadQuality = rating),
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   const _FormFieldLabel(text: 'REQUIRED DOCUMENTS'),
@@ -829,6 +838,42 @@ class _DocumentsSection extends StatelessWidget {
             onRemove: () => onRemove(i),
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _LeadQualitySelector extends StatelessWidget {
+  const _LeadQualitySelector({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final int? value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        for (var rating = 1; rating <= 3; rating++)
+          IconButton(
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(
+              minWidth: AppSpacing.xl,
+              minHeight: AppSpacing.xl,
+            ),
+            onPressed: () => onChanged(rating),
+            icon: Icon(
+              rating <= (value ?? 0) ? Icons.star : Icons.star_border,
+              color: rating <= (value ?? 0)
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
+              size: AppSpacing.lg,
+            ),
+          ),
       ],
     );
   }

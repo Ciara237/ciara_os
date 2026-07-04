@@ -1,4 +1,6 @@
 import 'package:ciaraos/models/security_activity.dart';
+import 'package:ciaraos/models/stored_security_manual_log.dart';
+import 'package:ciaraos/providers/security_manual_log_providers.dart';
 import 'package:ciaraos/providers/security_providers.dart';
 import 'package:ciaraos/services/security_service.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
@@ -128,18 +130,14 @@ class _SecurityPracticeScreenState extends ConsumerState<SecurityPracticeScreen>
       ),
       builder: (context) => _ManualLogSheet(
         onSubmit: (log) async {
-          final ok =
-              await ref.read(securityServiceProvider).logManualActivity(log);
+          await ref.read(securityManualLogRepositoryProvider).insert(log);
+          ref.read(securityServiceProvider).logManualActivity(log);
           if (!context.mounted) {
             return;
           }
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                ok ? 'Activity logged.' : 'Could not log activity.',
-              ),
-            ),
+            const SnackBar(content: Text('Activity logged.')),
           );
         },
       ),
@@ -290,6 +288,10 @@ class _HackTheBoxTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(hackTheBoxProvider);
     final probeAsync = ref.watch(securityApiProbeProvider);
+    final manualLogs = ref.watch(htbManualLogsProvider).value ?? const [];
+    final manualActivity = manualLogs
+        .map((log) => log.toHackTheBoxActivity())
+        .toList(growable: false);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -322,6 +324,7 @@ class _HackTheBoxTab extends ConsumerWidget {
                     onLogManual: onLogManual,
                     onSync: () =>
                         ref.read(hackTheBoxProvider.notifier).sync(),
+                    manualActivity: manualActivity,
                   );
                 }
 
@@ -330,6 +333,7 @@ class _HackTheBoxTab extends ConsumerWidget {
                     onLogManual: onLogManual,
                     onSync: () =>
                         ref.read(hackTheBoxProvider.notifier).sync(),
+                    manualActivity: manualActivity,
                   );
                 }
 
@@ -340,7 +344,12 @@ class _HackTheBoxTab extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.lg),
                     _HtbSkillCoverageCard(coverage: profile.skillCoverage),
                     const SizedBox(height: AppSpacing.lg),
-                    _HtbRecentActivitySection(activity: profile.recentActivity),
+                    _HtbRecentActivitySection(
+                      activity: mergeHackTheBoxActivity(
+                        synced: profile.recentActivity,
+                        manual: manualLogs,
+                      ),
+                    ),
                   ],
                 );
               },
@@ -359,11 +368,13 @@ class _HtbThresholdNotMet extends StatelessWidget {
     required this.probe,
     required this.onLogManual,
     required this.onSync,
+    required this.manualActivity,
   });
 
   final SecurityApiProbe probe;
   final VoidCallback onLogManual;
   final VoidCallback onSync;
+  final List<HackTheBoxActivity> manualActivity;
 
   @override
   Widget build(BuildContext context) {
@@ -428,6 +439,10 @@ class _HtbThresholdNotMet extends StatelessWidget {
           message:
               'Connect API to unlock activity heatmaps and target tracking.',
         ),
+        if (manualActivity.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
+          _HtbRecentActivitySection(activity: manualActivity),
+        ],
       ],
     );
   }
@@ -437,10 +452,12 @@ class _HtbPartialState extends StatelessWidget {
   const _HtbPartialState({
     required this.onLogManual,
     required this.onSync,
+    required this.manualActivity,
   });
 
   final VoidCallback onLogManual;
   final VoidCallback onSync;
+  final List<HackTheBoxActivity> manualActivity;
 
   @override
   Widget build(BuildContext context) {
@@ -492,12 +509,15 @@ class _HtbPartialState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            InlineSectionEmptyState(
-              message: 'Recent machine and challenge solves appear here.',
-              actionHint: 'Sync HackTheBox or log a manual session',
-              compact: true,
-              icon: Icons.history,
-            ),
+            if (manualActivity.isEmpty)
+              InlineSectionEmptyState(
+                message: 'Recent machine and challenge solves appear here.',
+                actionHint: 'Sync HackTheBox or log a manual session',
+                compact: true,
+                icon: Icons.history,
+              )
+            else
+              _HtbRecentActivitySection(activity: manualActivity),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
@@ -520,6 +540,10 @@ class _HackerOneTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(hackerOneProvider);
     final probeAsync = ref.watch(securityApiProbeProvider);
+    final manualLogs = ref.watch(h1ManualLogsProvider).value ?? const [];
+    final manualReports = manualLogs
+        .map((log) => log.toHackerOneReport())
+        .toList(growable: false);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -552,6 +576,7 @@ class _HackerOneTab extends ConsumerWidget {
                     onLogManual: onLogManual,
                     onSync: () =>
                         ref.read(hackerOneProvider.notifier).sync(),
+                    manualReports: manualReports,
                   );
                 }
 
@@ -559,6 +584,7 @@ class _HackerOneTab extends ConsumerWidget {
                   return _H1PartialState(
                     onSync: () =>
                         ref.read(hackerOneProvider.notifier).sync(),
+                    manualReports: manualReports,
                   );
                 }
 
@@ -569,7 +595,12 @@ class _HackerOneTab extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.lg),
                     _H1BountyCard(summary: profile.bountySummary),
                     const SizedBox(height: AppSpacing.lg),
-                    _H1ReportsSection(reports: profile.recentReports),
+                    _H1ReportsSection(
+                      reports: mergeHackerOneReports(
+                        synced: profile.recentReports,
+                        manual: manualLogs,
+                      ),
+                    ),
                   ],
                 );
               },
@@ -588,11 +619,13 @@ class _H1ThresholdNotMet extends StatelessWidget {
     required this.probe,
     required this.onLogManual,
     required this.onSync,
+    required this.manualReports,
   });
 
   final SecurityApiProbe probe;
   final VoidCallback onLogManual;
   final VoidCallback onSync;
+  final List<HackerOneReport> manualReports;
 
   @override
   Widget build(BuildContext context) {
@@ -669,15 +702,23 @@ class _H1ThresholdNotMet extends StatelessWidget {
               'Connect API to see recent vulnerability reports and reputation changes.',
           icon: Icons.visibility_off_outlined,
         ),
+        if (manualReports.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.lg),
+          _H1ReportsSection(reports: manualReports),
+        ],
       ],
     );
   }
 }
 
 class _H1PartialState extends StatelessWidget {
-  const _H1PartialState({required this.onSync});
+  const _H1PartialState({
+    required this.onSync,
+    required this.manualReports,
+  });
 
   final VoidCallback onSync;
+  final List<HackerOneReport> manualReports;
 
   @override
   Widget build(BuildContext context) {
@@ -704,13 +745,16 @@ class _H1PartialState extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        InlineSectionEmptyState(
-          title: 'Recent reports',
-          message: 'Your latest submitted and triaged reports list here.',
-          actionHint: 'Sync HackerOne to load report history',
-          compact: true,
-          icon: Icons.article_outlined,
-        ),
+        if (manualReports.isEmpty)
+          InlineSectionEmptyState(
+            title: 'Recent reports',
+            message: 'Your latest submitted and triaged reports list here.',
+            actionHint: 'Sync HackerOne to load report history',
+            compact: true,
+            icon: Icons.article_outlined,
+          )
+        else
+          _H1ReportsSection(reports: manualReports),
         const SizedBox(height: AppSpacing.md),
         OutlinedButton.icon(
           onPressed: onSync,

@@ -8,6 +8,7 @@ import 'tables/notes_table.dart';
 import 'tables/opportunities_table.dart';
 import 'tables/projects_table.dart';
 import 'tables/resources_table.dart';
+import 'tables/security_manual_logs_table.dart';
 import 'tables/tasks_table.dart';
 import 'tables/weekly_reviews_table.dart';
 
@@ -23,6 +24,7 @@ part 'app_database.g.dart';
     Certifications,
     Notes,
     Resources,
+    SecurityManualLogs,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -45,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -121,6 +123,9 @@ class AppDatabase extends _$AppDatabase {
             await migrator.addColumn(notes, notes.notionUrl);
             await migrator.addColumn(notes, notes.notionLastEdited);
             await migrator.addColumn(notes, notes.isNotionSynced);
+          }
+          if (from < 10) {
+            await migrator.createTable(securityManualLogs);
           }
         },
       );

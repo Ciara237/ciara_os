@@ -311,6 +311,7 @@ class _ExecutionScoreCard extends StatelessWidget {
               actionHint: 'Finalize your Executive Debrief in the Review tab',
               progressCurrent: reviewCount,
               progressMax: kTrendsMinWeeks,
+              progressUnit: 'reviews',
               icon: Icons.lock_outline,
             )
           else ...[
@@ -454,6 +455,7 @@ class _FocusHoursCard extends StatelessWidget {
               actionHint: 'Complete a weekly review with deep work logged',
               progressCurrent: reviewCount,
               progressMax: kTrendsMinWeeks,
+              progressUnit: 'reviews',
               compact: true,
               icon: Icons.timer_outlined,
             ),

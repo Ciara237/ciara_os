@@ -12,6 +12,7 @@ class InlineSectionEmptyState extends StatelessWidget {
     this.actionHint,
     this.progressCurrent,
     this.progressMax,
+    this.progressUnit,
     this.icon = Icons.lock_outline,
     this.compact = false,
   });
@@ -21,6 +22,7 @@ class InlineSectionEmptyState extends StatelessWidget {
   final String? actionHint;
   final int? progressCurrent;
   final int? progressMax;
+  final String? progressUnit;
   final IconData icon;
   final bool compact;
 
@@ -93,7 +95,9 @@ class InlineSectionEmptyState extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '$progressCurrent / $progressMax',
+                  progressUnit == null
+                      ? '$progressCurrent / $progressMax'
+                      : '$progressCurrent / $progressMax $progressUnit',
                   style: AppTypography.labelSmall.copyWith(
                     color: colorScheme.primary,
                     fontWeight: FontWeight.bold,

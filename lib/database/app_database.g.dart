@@ -6141,6 +6141,519 @@ class ResourcesCompanion extends UpdateCompanion<Resource> {
   }
 }
 
+class $SecurityManualLogsTable extends SecurityManualLogs
+    with TableInfo<$SecurityManualLogsTable, SecurityManualLog> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SecurityManualLogsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _platformMeta = const VerificationMeta(
+    'platform',
+  );
+  @override
+  late final GeneratedColumn<String> platform = GeneratedColumn<String>(
+    'platform',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _activityTypeMeta = const VerificationMeta(
+    'activityType',
+  );
+  @override
+  late final GeneratedColumn<String> activityType = GeneratedColumn<String>(
+    'activity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _difficultyMeta = const VerificationMeta(
+    'difficulty',
+  );
+  @override
+  late final GeneratedColumn<String> difficulty = GeneratedColumn<String>(
+    'difficulty',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _activityDateMeta = const VerificationMeta(
+    'activityDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> activityDate = GeneratedColumn<DateTime>(
+    'activity_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _loggedAtMeta = const VerificationMeta(
+    'loggedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> loggedAt = GeneratedColumn<DateTime>(
+    'logged_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    platform,
+    activityType,
+    name,
+    difficulty,
+    activityDate,
+    notes,
+    loggedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'security_manual_logs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SecurityManualLog> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('platform')) {
+      context.handle(
+        _platformMeta,
+        platform.isAcceptableOrUnknown(data['platform']!, _platformMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_platformMeta);
+    }
+    if (data.containsKey('activity_type')) {
+      context.handle(
+        _activityTypeMeta,
+        activityType.isAcceptableOrUnknown(
+          data['activity_type']!,
+          _activityTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_activityTypeMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('difficulty')) {
+      context.handle(
+        _difficultyMeta,
+        difficulty.isAcceptableOrUnknown(data['difficulty']!, _difficultyMeta),
+      );
+    }
+    if (data.containsKey('activity_date')) {
+      context.handle(
+        _activityDateMeta,
+        activityDate.isAcceptableOrUnknown(
+          data['activity_date']!,
+          _activityDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_activityDateMeta);
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('logged_at')) {
+      context.handle(
+        _loggedAtMeta,
+        loggedAt.isAcceptableOrUnknown(data['logged_at']!, _loggedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_loggedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SecurityManualLog map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SecurityManualLog(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      platform: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}platform'],
+      )!,
+      activityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}activity_type'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      difficulty: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}difficulty'],
+      ),
+      activityDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}activity_date'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      loggedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}logged_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SecurityManualLogsTable createAlias(String alias) {
+    return $SecurityManualLogsTable(attachedDatabase, alias);
+  }
+}
+
+class SecurityManualLog extends DataClass
+    implements Insertable<SecurityManualLog> {
+  final int id;
+  final String platform;
+  final String activityType;
+  final String name;
+  final String? difficulty;
+  final DateTime activityDate;
+  final String? notes;
+  final DateTime loggedAt;
+  const SecurityManualLog({
+    required this.id,
+    required this.platform,
+    required this.activityType,
+    required this.name,
+    this.difficulty,
+    required this.activityDate,
+    this.notes,
+    required this.loggedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['platform'] = Variable<String>(platform);
+    map['activity_type'] = Variable<String>(activityType);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || difficulty != null) {
+      map['difficulty'] = Variable<String>(difficulty);
+    }
+    map['activity_date'] = Variable<DateTime>(activityDate);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['logged_at'] = Variable<DateTime>(loggedAt);
+    return map;
+  }
+
+  SecurityManualLogsCompanion toCompanion(bool nullToAbsent) {
+    return SecurityManualLogsCompanion(
+      id: Value(id),
+      platform: Value(platform),
+      activityType: Value(activityType),
+      name: Value(name),
+      difficulty: difficulty == null && nullToAbsent
+          ? const Value.absent()
+          : Value(difficulty),
+      activityDate: Value(activityDate),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      loggedAt: Value(loggedAt),
+    );
+  }
+
+  factory SecurityManualLog.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SecurityManualLog(
+      id: serializer.fromJson<int>(json['id']),
+      platform: serializer.fromJson<String>(json['platform']),
+      activityType: serializer.fromJson<String>(json['activityType']),
+      name: serializer.fromJson<String>(json['name']),
+      difficulty: serializer.fromJson<String?>(json['difficulty']),
+      activityDate: serializer.fromJson<DateTime>(json['activityDate']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      loggedAt: serializer.fromJson<DateTime>(json['loggedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'platform': serializer.toJson<String>(platform),
+      'activityType': serializer.toJson<String>(activityType),
+      'name': serializer.toJson<String>(name),
+      'difficulty': serializer.toJson<String?>(difficulty),
+      'activityDate': serializer.toJson<DateTime>(activityDate),
+      'notes': serializer.toJson<String?>(notes),
+      'loggedAt': serializer.toJson<DateTime>(loggedAt),
+    };
+  }
+
+  SecurityManualLog copyWith({
+    int? id,
+    String? platform,
+    String? activityType,
+    String? name,
+    Value<String?> difficulty = const Value.absent(),
+    DateTime? activityDate,
+    Value<String?> notes = const Value.absent(),
+    DateTime? loggedAt,
+  }) => SecurityManualLog(
+    id: id ?? this.id,
+    platform: platform ?? this.platform,
+    activityType: activityType ?? this.activityType,
+    name: name ?? this.name,
+    difficulty: difficulty.present ? difficulty.value : this.difficulty,
+    activityDate: activityDate ?? this.activityDate,
+    notes: notes.present ? notes.value : this.notes,
+    loggedAt: loggedAt ?? this.loggedAt,
+  );
+  SecurityManualLog copyWithCompanion(SecurityManualLogsCompanion data) {
+    return SecurityManualLog(
+      id: data.id.present ? data.id.value : this.id,
+      platform: data.platform.present ? data.platform.value : this.platform,
+      activityType: data.activityType.present
+          ? data.activityType.value
+          : this.activityType,
+      name: data.name.present ? data.name.value : this.name,
+      difficulty: data.difficulty.present
+          ? data.difficulty.value
+          : this.difficulty,
+      activityDate: data.activityDate.present
+          ? data.activityDate.value
+          : this.activityDate,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      loggedAt: data.loggedAt.present ? data.loggedAt.value : this.loggedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SecurityManualLog(')
+          ..write('id: $id, ')
+          ..write('platform: $platform, ')
+          ..write('activityType: $activityType, ')
+          ..write('name: $name, ')
+          ..write('difficulty: $difficulty, ')
+          ..write('activityDate: $activityDate, ')
+          ..write('notes: $notes, ')
+          ..write('loggedAt: $loggedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    platform,
+    activityType,
+    name,
+    difficulty,
+    activityDate,
+    notes,
+    loggedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SecurityManualLog &&
+          other.id == this.id &&
+          other.platform == this.platform &&
+          other.activityType == this.activityType &&
+          other.name == this.name &&
+          other.difficulty == this.difficulty &&
+          other.activityDate == this.activityDate &&
+          other.notes == this.notes &&
+          other.loggedAt == this.loggedAt);
+}
+
+class SecurityManualLogsCompanion extends UpdateCompanion<SecurityManualLog> {
+  final Value<int> id;
+  final Value<String> platform;
+  final Value<String> activityType;
+  final Value<String> name;
+  final Value<String?> difficulty;
+  final Value<DateTime> activityDate;
+  final Value<String?> notes;
+  final Value<DateTime> loggedAt;
+  const SecurityManualLogsCompanion({
+    this.id = const Value.absent(),
+    this.platform = const Value.absent(),
+    this.activityType = const Value.absent(),
+    this.name = const Value.absent(),
+    this.difficulty = const Value.absent(),
+    this.activityDate = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.loggedAt = const Value.absent(),
+  });
+  SecurityManualLogsCompanion.insert({
+    this.id = const Value.absent(),
+    required String platform,
+    required String activityType,
+    required String name,
+    this.difficulty = const Value.absent(),
+    required DateTime activityDate,
+    this.notes = const Value.absent(),
+    required DateTime loggedAt,
+  }) : platform = Value(platform),
+       activityType = Value(activityType),
+       name = Value(name),
+       activityDate = Value(activityDate),
+       loggedAt = Value(loggedAt);
+  static Insertable<SecurityManualLog> custom({
+    Expression<int>? id,
+    Expression<String>? platform,
+    Expression<String>? activityType,
+    Expression<String>? name,
+    Expression<String>? difficulty,
+    Expression<DateTime>? activityDate,
+    Expression<String>? notes,
+    Expression<DateTime>? loggedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (platform != null) 'platform': platform,
+      if (activityType != null) 'activity_type': activityType,
+      if (name != null) 'name': name,
+      if (difficulty != null) 'difficulty': difficulty,
+      if (activityDate != null) 'activity_date': activityDate,
+      if (notes != null) 'notes': notes,
+      if (loggedAt != null) 'logged_at': loggedAt,
+    });
+  }
+
+  SecurityManualLogsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? platform,
+    Value<String>? activityType,
+    Value<String>? name,
+    Value<String?>? difficulty,
+    Value<DateTime>? activityDate,
+    Value<String?>? notes,
+    Value<DateTime>? loggedAt,
+  }) {
+    return SecurityManualLogsCompanion(
+      id: id ?? this.id,
+      platform: platform ?? this.platform,
+      activityType: activityType ?? this.activityType,
+      name: name ?? this.name,
+      difficulty: difficulty ?? this.difficulty,
+      activityDate: activityDate ?? this.activityDate,
+      notes: notes ?? this.notes,
+      loggedAt: loggedAt ?? this.loggedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (platform.present) {
+      map['platform'] = Variable<String>(platform.value);
+    }
+    if (activityType.present) {
+      map['activity_type'] = Variable<String>(activityType.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (difficulty.present) {
+      map['difficulty'] = Variable<String>(difficulty.value);
+    }
+    if (activityDate.present) {
+      map['activity_date'] = Variable<DateTime>(activityDate.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (loggedAt.present) {
+      map['logged_at'] = Variable<DateTime>(loggedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SecurityManualLogsCompanion(')
+          ..write('id: $id, ')
+          ..write('platform: $platform, ')
+          ..write('activityType: $activityType, ')
+          ..write('name: $name, ')
+          ..write('difficulty: $difficulty, ')
+          ..write('activityDate: $activityDate, ')
+          ..write('notes: $notes, ')
+          ..write('loggedAt: $loggedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6152,6 +6665,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CertificationsTable certifications = $CertificationsTable(this);
   late final $NotesTable notes = $NotesTable(this);
   late final $ResourcesTable resources = $ResourcesTable(this);
+  late final $SecurityManualLogsTable securityManualLogs =
+      $SecurityManualLogsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6165,6 +6680,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     certifications,
     notes,
     resources,
+    securityManualLogs,
   ];
 }
 
@@ -9427,6 +9943,276 @@ typedef $$ResourcesTableProcessedTableManager =
       Resource,
       PrefetchHooks Function()
     >;
+typedef $$SecurityManualLogsTableCreateCompanionBuilder =
+    SecurityManualLogsCompanion Function({
+      Value<int> id,
+      required String platform,
+      required String activityType,
+      required String name,
+      Value<String?> difficulty,
+      required DateTime activityDate,
+      Value<String?> notes,
+      required DateTime loggedAt,
+    });
+typedef $$SecurityManualLogsTableUpdateCompanionBuilder =
+    SecurityManualLogsCompanion Function({
+      Value<int> id,
+      Value<String> platform,
+      Value<String> activityType,
+      Value<String> name,
+      Value<String?> difficulty,
+      Value<DateTime> activityDate,
+      Value<String?> notes,
+      Value<DateTime> loggedAt,
+    });
+
+class $$SecurityManualLogsTableFilterComposer
+    extends Composer<_$AppDatabase, $SecurityManualLogsTable> {
+  $$SecurityManualLogsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get activityType => $composableBuilder(
+    column: $table.activityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get difficulty => $composableBuilder(
+    column: $table.difficulty,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get activityDate => $composableBuilder(
+    column: $table.activityDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get loggedAt => $composableBuilder(
+    column: $table.loggedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SecurityManualLogsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SecurityManualLogsTable> {
+  $$SecurityManualLogsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get activityType => $composableBuilder(
+    column: $table.activityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get difficulty => $composableBuilder(
+    column: $table.difficulty,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get activityDate => $composableBuilder(
+    column: $table.activityDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get loggedAt => $composableBuilder(
+    column: $table.loggedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SecurityManualLogsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SecurityManualLogsTable> {
+  $$SecurityManualLogsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get platform =>
+      $composableBuilder(column: $table.platform, builder: (column) => column);
+
+  GeneratedColumn<String> get activityType => $composableBuilder(
+    column: $table.activityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get difficulty => $composableBuilder(
+    column: $table.difficulty,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get activityDate => $composableBuilder(
+    column: $table.activityDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get loggedAt =>
+      $composableBuilder(column: $table.loggedAt, builder: (column) => column);
+}
+
+class $$SecurityManualLogsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SecurityManualLogsTable,
+          SecurityManualLog,
+          $$SecurityManualLogsTableFilterComposer,
+          $$SecurityManualLogsTableOrderingComposer,
+          $$SecurityManualLogsTableAnnotationComposer,
+          $$SecurityManualLogsTableCreateCompanionBuilder,
+          $$SecurityManualLogsTableUpdateCompanionBuilder,
+          (
+            SecurityManualLog,
+            BaseReferences<
+              _$AppDatabase,
+              $SecurityManualLogsTable,
+              SecurityManualLog
+            >,
+          ),
+          SecurityManualLog,
+          PrefetchHooks Function()
+        > {
+  $$SecurityManualLogsTableTableManager(
+    _$AppDatabase db,
+    $SecurityManualLogsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SecurityManualLogsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SecurityManualLogsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SecurityManualLogsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> platform = const Value.absent(),
+                Value<String> activityType = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> difficulty = const Value.absent(),
+                Value<DateTime> activityDate = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<DateTime> loggedAt = const Value.absent(),
+              }) => SecurityManualLogsCompanion(
+                id: id,
+                platform: platform,
+                activityType: activityType,
+                name: name,
+                difficulty: difficulty,
+                activityDate: activityDate,
+                notes: notes,
+                loggedAt: loggedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String platform,
+                required String activityType,
+                required String name,
+                Value<String?> difficulty = const Value.absent(),
+                required DateTime activityDate,
+                Value<String?> notes = const Value.absent(),
+                required DateTime loggedAt,
+              }) => SecurityManualLogsCompanion.insert(
+                id: id,
+                platform: platform,
+                activityType: activityType,
+                name: name,
+                difficulty: difficulty,
+                activityDate: activityDate,
+                notes: notes,
+                loggedAt: loggedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SecurityManualLogsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SecurityManualLogsTable,
+      SecurityManualLog,
+      $$SecurityManualLogsTableFilterComposer,
+      $$SecurityManualLogsTableOrderingComposer,
+      $$SecurityManualLogsTableAnnotationComposer,
+      $$SecurityManualLogsTableCreateCompanionBuilder,
+      $$SecurityManualLogsTableUpdateCompanionBuilder,
+      (
+        SecurityManualLog,
+        BaseReferences<
+          _$AppDatabase,
+          $SecurityManualLogsTable,
+          SecurityManualLog
+        >,
+      ),
+      SecurityManualLog,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9447,4 +10233,6 @@ class $AppDatabaseManager {
       $$NotesTableTableManager(_db, _db.notes);
   $$ResourcesTableTableManager get resources =>
       $$ResourcesTableTableManager(_db, _db.resources);
+  $$SecurityManualLogsTableTableManager get securityManualLogs =>
+      $$SecurityManualLogsTableTableManager(_db, _db.securityManualLogs);
 }
