@@ -800,6 +800,17 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _completedAtMeta = const VerificationMeta(
+    'completedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> completedAt = GeneratedColumn<DateTime>(
+    'completed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -840,6 +851,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     focusSessionCount,
     planningAccuracy,
     lastFocusSessionAt,
+    completedAt,
     createdAt,
     updatedAt,
   ];
@@ -970,6 +982,15 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         ),
       );
     }
+    if (data.containsKey('completed_at')) {
+      context.handle(
+        _completedAtMeta,
+        completedAt.isAcceptableOrUnknown(
+          data['completed_at']!,
+          _completedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1059,6 +1080,10 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_focus_session_at'],
       ),
+      completedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}completed_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1099,6 +1124,9 @@ class Task extends DataClass implements Insertable<Task> {
   /// 0–100 score after task completion (estimated vs actual focus).
   final double? planningAccuracy;
   final DateTime? lastFocusSessionAt;
+
+  /// Immutable completion timestamp — not bumped by later metadata edits.
+  final DateTime? completedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
   const Task({
@@ -1118,6 +1146,7 @@ class Task extends DataClass implements Insertable<Task> {
     required this.focusSessionCount,
     this.planningAccuracy,
     this.lastFocusSessionAt,
+    this.completedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -1154,6 +1183,9 @@ class Task extends DataClass implements Insertable<Task> {
     if (!nullToAbsent || lastFocusSessionAt != null) {
       map['last_focus_session_at'] = Variable<DateTime>(lastFocusSessionAt);
     }
+    if (!nullToAbsent || completedAt != null) {
+      map['completed_at'] = Variable<DateTime>(completedAt);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -1189,6 +1221,9 @@ class Task extends DataClass implements Insertable<Task> {
       lastFocusSessionAt: lastFocusSessionAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastFocusSessionAt),
+      completedAt: completedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(completedAt),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -1222,6 +1257,7 @@ class Task extends DataClass implements Insertable<Task> {
       lastFocusSessionAt: serializer.fromJson<DateTime?>(
         json['lastFocusSessionAt'],
       ),
+      completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -1248,6 +1284,7 @@ class Task extends DataClass implements Insertable<Task> {
       'focusSessionCount': serializer.toJson<int>(focusSessionCount),
       'planningAccuracy': serializer.toJson<double?>(planningAccuracy),
       'lastFocusSessionAt': serializer.toJson<DateTime?>(lastFocusSessionAt),
+      'completedAt': serializer.toJson<DateTime?>(completedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -1270,6 +1307,7 @@ class Task extends DataClass implements Insertable<Task> {
     int? focusSessionCount,
     Value<double?> planningAccuracy = const Value.absent(),
     Value<DateTime?> lastFocusSessionAt = const Value.absent(),
+    Value<DateTime?> completedAt = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => Task(
@@ -1295,6 +1333,7 @@ class Task extends DataClass implements Insertable<Task> {
     lastFocusSessionAt: lastFocusSessionAt.present
         ? lastFocusSessionAt.value
         : this.lastFocusSessionAt,
+    completedAt: completedAt.present ? completedAt.value : this.completedAt,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -1328,6 +1367,9 @@ class Task extends DataClass implements Insertable<Task> {
       lastFocusSessionAt: data.lastFocusSessionAt.present
           ? data.lastFocusSessionAt.value
           : this.lastFocusSessionAt,
+      completedAt: data.completedAt.present
+          ? data.completedAt.value
+          : this.completedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -1352,6 +1394,7 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('focusSessionCount: $focusSessionCount, ')
           ..write('planningAccuracy: $planningAccuracy, ')
           ..write('lastFocusSessionAt: $lastFocusSessionAt, ')
+          ..write('completedAt: $completedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -1376,6 +1419,7 @@ class Task extends DataClass implements Insertable<Task> {
     focusSessionCount,
     planningAccuracy,
     lastFocusSessionAt,
+    completedAt,
     createdAt,
     updatedAt,
   );
@@ -1399,6 +1443,7 @@ class Task extends DataClass implements Insertable<Task> {
           other.focusSessionCount == this.focusSessionCount &&
           other.planningAccuracy == this.planningAccuracy &&
           other.lastFocusSessionAt == this.lastFocusSessionAt &&
+          other.completedAt == this.completedAt &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -1420,6 +1465,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   final Value<int> focusSessionCount;
   final Value<double?> planningAccuracy;
   final Value<DateTime?> lastFocusSessionAt;
+  final Value<DateTime?> completedAt;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   const TasksCompanion({
@@ -1439,6 +1485,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.focusSessionCount = const Value.absent(),
     this.planningAccuracy = const Value.absent(),
     this.lastFocusSessionAt = const Value.absent(),
+    this.completedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
@@ -1459,6 +1506,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.focusSessionCount = const Value.absent(),
     this.planningAccuracy = const Value.absent(),
     this.lastFocusSessionAt = const Value.absent(),
+    this.completedAt = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
   }) : title = Value(title),
@@ -1482,6 +1530,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Expression<int>? focusSessionCount,
     Expression<double>? planningAccuracy,
     Expression<DateTime>? lastFocusSessionAt,
+    Expression<DateTime>? completedAt,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
   }) {
@@ -1505,6 +1554,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (planningAccuracy != null) 'planning_accuracy': planningAccuracy,
       if (lastFocusSessionAt != null)
         'last_focus_session_at': lastFocusSessionAt,
+      if (completedAt != null) 'completed_at': completedAt,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
@@ -1527,6 +1577,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
     Value<int>? focusSessionCount,
     Value<double?>? planningAccuracy,
     Value<DateTime?>? lastFocusSessionAt,
+    Value<DateTime?>? completedAt,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
   }) {
@@ -1548,6 +1599,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
       focusSessionCount: focusSessionCount ?? this.focusSessionCount,
       planningAccuracy: planningAccuracy ?? this.planningAccuracy,
       lastFocusSessionAt: lastFocusSessionAt ?? this.lastFocusSessionAt,
+      completedAt: completedAt ?? this.completedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -1608,6 +1660,9 @@ class TasksCompanion extends UpdateCompanion<Task> {
         lastFocusSessionAt.value,
       );
     }
+    if (completedAt.present) {
+      map['completed_at'] = Variable<DateTime>(completedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1636,6 +1691,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('focusSessionCount: $focusSessionCount, ')
           ..write('planningAccuracy: $planningAccuracy, ')
           ..write('lastFocusSessionAt: $lastFocusSessionAt, ')
+          ..write('completedAt: $completedAt, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -7093,6 +7149,7 @@ typedef $$TasksTableCreateCompanionBuilder =
       Value<int> focusSessionCount,
       Value<double?> planningAccuracy,
       Value<DateTime?> lastFocusSessionAt,
+      Value<DateTime?> completedAt,
       required DateTime createdAt,
       required DateTime updatedAt,
     });
@@ -7114,6 +7171,7 @@ typedef $$TasksTableUpdateCompanionBuilder =
       Value<int> focusSessionCount,
       Value<double?> planningAccuracy,
       Value<DateTime?> lastFocusSessionAt,
+      Value<DateTime?> completedAt,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
     });
@@ -7238,6 +7296,11 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
 
   ColumnFilters<DateTime> get lastFocusSessionAt => $composableBuilder(
     column: $table.lastFocusSessionAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7384,6 +7447,11 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -7481,6 +7549,11 @@ class $$TasksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get lastFocusSessionAt => $composableBuilder(
     column: $table.lastFocusSessionAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
     builder: (column) => column,
   );
 
@@ -7583,6 +7656,7 @@ class $$TasksTableTableManager
                 Value<int> focusSessionCount = const Value.absent(),
                 Value<double?> planningAccuracy = const Value.absent(),
                 Value<DateTime?> lastFocusSessionAt = const Value.absent(),
+                Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
               }) => TasksCompanion(
@@ -7602,6 +7676,7 @@ class $$TasksTableTableManager
                 focusSessionCount: focusSessionCount,
                 planningAccuracy: planningAccuracy,
                 lastFocusSessionAt: lastFocusSessionAt,
+                completedAt: completedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),
@@ -7623,6 +7698,7 @@ class $$TasksTableTableManager
                 Value<int> focusSessionCount = const Value.absent(),
                 Value<double?> planningAccuracy = const Value.absent(),
                 Value<DateTime?> lastFocusSessionAt = const Value.absent(),
+                Value<DateTime?> completedAt = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
               }) => TasksCompanion.insert(
@@ -7642,6 +7718,7 @@ class $$TasksTableTableManager
                 focusSessionCount: focusSessionCount,
                 planningAccuracy: planningAccuracy,
                 lastFocusSessionAt: lastFocusSessionAt,
+                completedAt: completedAt,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
               ),

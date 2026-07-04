@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:ciaraos/models/project.dart';
 import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/providers/daily_brief_gate_provider.dart';
+import 'package:ciaraos/providers/daily_stats_providers.dart';
 import 'package:ciaraos/providers/focus_session_provider.dart';
 import 'package:ciaraos/providers/session_recovery_provider.dart';
 import 'package:ciaraos/providers/focus_session_repository_provider.dart';
@@ -10,17 +11,24 @@ import 'package:ciaraos/providers/profile_providers.dart';
 import 'package:ciaraos/providers/project_providers.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/providers/weekly_review_providers.dart';
+import 'package:ciaraos/router/app_router.dart';
+import 'package:ciaraos/services/day_execution_stats.dart';
+import 'package:ciaraos/services/daily_activity_stats.dart';
 import 'package:ciaraos/services/daily_brief_metrics.dart';
 import 'package:ciaraos/services/project_next_action_service.dart';
 import 'package:ciaraos/services/daily_brief_state_service.dart';
-import 'package:ciaraos/theme/app_colors.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
-import 'package:ciaraos/theme/app_theme.dart';
 import 'package:ciaraos/theme/app_typography.dart';
-import 'package:ciaraos/utils/deep_work_utils.dart';
-import 'package:ciaraos/utils/focus_duration_utils.dart';
 import 'package:ciaraos/utils/review_stats_utils.dart';
+import 'package:ciaraos/utils/task_filter_utils.dart';
+import 'package:ciaraos/widgets/daily_brief/daily_brief_chrome.dart';
+import 'package:ciaraos/widgets/daily_brief/daily_brief_default_view.dart';
+import 'package:ciaraos/widgets/daily_brief/daily_brief_empty_day_view.dart';
+import 'package:ciaraos/widgets/daily_brief/daily_brief_resume_view.dart';
+import 'package:ciaraos/widgets/daily_brief/daily_brief_shared.dart';
+import 'package:ciaraos/widgets/daily_brief/daily_brief_welcome_back_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -47,6 +55,9 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
   Task? _interruptedTask;
   int _interruptedElapsedSeconds = 0;
   List<Task> _allTasks = const [];
+  List<Task> _todayTasks = const [];
+  List<BufferTaskEntry> _bufferTasks = const [];
+  List<int> _weeklyFocusSeconds = List.filled(7, 0);
 
   @override
   void initState() {
@@ -69,6 +80,14 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
     return DateFormat('HH:mm').format(time);
   }
 
+  bool get _isReviewRoute {
+    final routerState = GoRouterState.of(context);
+    return routerState.matchedLocation == '/daily-brief' &&
+        routerState.uri.queryParameters['review'] == 'true';
+  }
+
+  bool get _isMandatoryOverlay => !_isReviewRoute;
+
   Future<void> _resolveBriefState() async {
     try {
       final taskRepo = ref.read(taskRepositoryProvider);
@@ -83,6 +102,11 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
           await weekReviewRepo.getByWeek(mondayOfWeek(DateTime.now()));
       final activeSession = await focusRepo.getActiveSession();
       final hasInterruptedSession = activeSession != null;
+      final weekMonday = mondayOfWeek(DateTime.now());
+      final weeklyFocus = await loadMergedFocusSecondsForWeek(
+        weekMonday: weekMonday,
+        focusRepo: focusRepo,
+      );
 
       final lastOpenedAt = ref.read(dailyBriefGateProvider).readLastOpenedAt();
 
@@ -92,9 +116,13 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
         lastOpenedAt: lastOpenedAt,
       );
 
-      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterday = normalizeCalendarDay(
+        DateTime.now().subtract(const Duration(days: 1)),
+      );
       final sessions =
           await focusRepo.getCompletedSessionsForDay(yesterday);
+      final persistedYesterdayFocus =
+          await DailyActivityStats.focusSecondsFor(yesterday);
 
       Task? interruptedTask;
       if (activeSession != null) {
@@ -112,6 +140,8 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
         _yesterday = computeYesterdaySummary(
           allTasks: allTasks,
           sessions: sessions,
+          persistedFocusSeconds: persistedYesterdayFocus,
+          day: yesterday,
         );
         _absenceStatus = computeAbsenceStatus(
           allTasks: allTasks,
@@ -123,6 +153,9 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
         _interruptedTask = interruptedTask;
         _interruptedElapsedSeconds = activeSession?.liveElapsedSeconds ?? 0;
         _allTasks = allTasks;
+        _todayTasks = todayTasks;
+        _bufferTasks = highPriorityBufferTasks(allTasks);
+        _weeklyFocusSeconds = weeklyFocus;
       });
     } catch (error, stackTrace) {
       debugPrint('Daily brief failed to load: $error\n$stackTrace');
@@ -162,10 +195,6 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
     return 'Working late, $name.';
   }
 
-  String _dateSubtitle() {
-    return DateFormat('EEEE, MMMM d, y').format(DateTime.now());
-  }
-
   int _daysSinceLastOpen() {
     final lastOpened = ref.read(dailyBriefGateProvider).readLastOpenedAt();
     if (lastOpened == null) {
@@ -178,104 +207,192 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
     return (hours / 24).ceil();
   }
 
+  ({String title, String body}) _welcomeRecommendation() {
+    final status = _absenceStatus!;
+    if (status.overdueTaskCount > 0 && status.mostOverdueTask != null) {
+      return (
+        title: status.mostOverdueTask!.title,
+        body: 'Address overdue work first.',
+      );
+    }
+    if (status.weeklyReviewPending) {
+      return (
+        title: 'Weekly review pending',
+        body: 'Complete your weekly review.',
+      );
+    }
+    if (status.topActiveProject != null) {
+      final project = status.topActiveProject!;
+      return (
+        title: displayNextAction(project, _allTasks) ?? project.name,
+        body: 'Continue active project work.',
+      );
+    }
+    return (
+      title: 'Re-engage with your system',
+      body: 'Pick one priority and start.',
+    );
+  }
+
+  Future<void> _exitBrief({
+    String destination = '/',
+    bool discardSession = false,
+    bool markBriefComplete = true,
+  }) async {
+    if (_isNavigating) {
+      return;
+    }
+
+    setState(() => _isNavigating = true);
+
+    final gate = ref.read(dailyBriefGateProvider);
+    final router = ref.read(routerProvider);
+
+    try {
+      if (discardSession) {
+        await ref.read(focusSessionProvider.notifier).discardActiveSession();
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      if (_isReviewRoute && context.canPop()) {
+        context.pop();
+        return;
+      }
+
+      if (markBriefComplete) {
+        gate.dismissBriefSync();
+        await gate.markShownToday();
+      }
+      await gate.markOpenedNow();
+
+      if (!mounted) {
+        return;
+      }
+
+      // Mandatory overlay: dismissing the gate removes this screen — no route hop.
+      if (_isMandatoryOverlay && destination == '/') {
+        return;
+      }
+
+      router.go(destination);
+    } catch (error, stackTrace) {
+      debugPrint('Daily brief exit failed: $error\n$stackTrace');
+      if (mounted) {
+        setState(() => _isNavigating = false);
+      }
+    }
+  }
+
+  Future<void> _enterToday({bool discardSession = false}) {
+    return _exitBrief(discardSession: discardSession);
+  }
+
+  Future<void> _reEngageFromWelcomeBack() {
+    final status = _absenceStatus;
+    if (status == null) {
+      return _enterToday();
+    }
+    return _exitBrief(destination: reEngageDestination(status));
+  }
+
   Future<void> _resumeInterruptedSession() async {
     ref.read(sessionRecoveryHandledProvider.notifier).state = true;
     await ref.read(focusSessionProvider.notifier).recoverSession();
-    await _completeBrief();
+    await _enterToday();
   }
 
-  Future<void> _completeBrief({bool discardSession = false}) async {
-    if (_isNavigating) {
-      return;
-    }
-
-    setState(() => _isNavigating = true);
-
-    if (discardSession) {
-      await ref.read(focusSessionProvider.notifier).discardActiveSession();
-    }
-
-    final gate = ref.read(dailyBriefGateProvider);
-    await gate.markShownToday();
-    await gate.markOpenedNow();
-
-    if (!mounted) {
-      return;
-    }
-
-    context.go('/');
-  }
-
-  Future<void> _completeBriefAndGo(String location) async {
-    if (_isNavigating) {
-      return;
-    }
-
-    setState(() => _isNavigating = true);
-
-    final gate = ref.read(dailyBriefGateProvider);
-    await gate.markShownToday();
-    await gate.markOpenedNow();
-
-    if (!mounted) {
-      return;
-    }
-
-    context.go(location);
+  bool get _useExpandedChrome {
+    final state = _briefState;
+    return state == DailyBriefState.resumeSession ||
+        state == DailyBriefState.returningAfterAbsence ||
+        state == DailyBriefState.emptyDay;
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(allTasksProvider, (previous, next) {
+      if (next.hasValue && !_isResolving && mounted) {
+        _resolveBriefState();
+      }
+    });
+    ref.listen(dailyStatsRevisionProvider, (previous, next) {
+      if (previous != next && !_isResolving && mounted && _briefState != null) {
+        _resolveBriefState();
+      }
+    });
+    ref.listen(focusSessionProvider, (previous, next) {
+      if (previous?.isActive != next.isActive &&
+          !_isResolving &&
+          mounted &&
+          _briefState != null) {
+        _resolveBriefState();
+      }
+    });
+
     final colorScheme = Theme.of(context).colorScheme;
+    final isWide =
+        MediaQuery.sizeOf(context).width >= dailyBriefWideBreakpoint;
+    final maxWidth = _briefState == DailyBriefState.dailyBrief && !isWide
+        ? 640.0
+        : (isWide ? 1200.0 : 640.0);
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {},
       child: Scaffold(
         backgroundColor: colorScheme.surface,
-        body: SafeArea(
-          child: _isResolving || _briefState == null
-              ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _DailyBriefHeader(clockLabel: _clockLabel),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.lg,
-                          AppSpacing.lg,
-                          AppSpacing.lg,
-                          AppSpacing.md,
-                        ),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 640),
-                            child: _resolveFailed
-                                ? _buildResolveError(colorScheme)
-                                : _buildBody(colorScheme),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.lg,
-                        AppSpacing.sm,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DailyBriefChrome(
+              showSearch: false,
+              showProfile: false,
+              clockLabel: _useExpandedChrome ? null : _clockLabel,
+            ),
+            Expanded(
+              child: _isResolving || _briefState == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
                         AppSpacing.lg,
                         AppSpacing.lg,
+                        AppSpacing.lg,
+                        AppSpacing.md,
                       ),
                       child: Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 640),
+                          constraints: BoxConstraints(maxWidth: maxWidth),
                           child: _resolveFailed
-                              ? _buildResolveErrorActions(colorScheme)
-                              : _buildActions(colorScheme),
+                              ? _buildResolveError(colorScheme)
+                              : _buildBody(),
                         ),
                       ),
                     ),
-                  ],
+            ),
+            if (!_isResolving &&
+                _briefState != null &&
+                !_resolveFailed &&
+                _briefState != DailyBriefState.emptyDay &&
+                _briefState != DailyBriefState.returningAfterAbsence &&
+                _briefState != DailyBriefState.resumeSession)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
                 ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: _buildFooterActions(),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -293,19 +410,12 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'Local data could not be read. You can retry or return to Today.',
+          'Local data could not be read. You can retry or enter Today.',
           style: AppTypography.bodyLarge.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildResolveErrorActions(ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
+        const SizedBox(height: AppSpacing.lg),
         FilledButton(
           onPressed: _isNavigating
               ? null
@@ -321,661 +431,84 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         OutlinedButton(
-          onPressed: _isNavigating ? null : () => context.go('/'),
-          child: const Text('Go to Today'),
+          onPressed: _isNavigating ? null : () => _enterToday(),
+          child: const Text('Enter Today'),
         ),
       ],
     );
   }
 
-  Widget _buildBody(ColorScheme colorScheme) {
-    return switch (_briefState!) {
-      DailyBriefState.returningAfterAbsence => _buildReturningBody(colorScheme),
-      DailyBriefState.resumeSession => _buildResumeBody(colorScheme),
-      DailyBriefState.emptyDay => _buildEmptyDayBody(colorScheme),
-      DailyBriefState.dailyBrief => _buildDefaultBody(colorScheme),
-    };
-  }
-
-  Widget _buildGreeting(ColorScheme colorScheme, {String? title}) {
-    final heading = title ?? _timeAwareGreeting();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          heading,
-          style: AppTypography.headingLarge.copyWith(
-            color: colorScheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          _briefState == DailyBriefState.returningAfterAbsence
-              ? "It's been ${_daysSinceLastOpen()} days."
-              : _dateSubtitle(),
-          style: AppTypography.bodyLarge.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-      ],
-    );
-  }
-
-  Widget _buildDefaultBody(ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildGreeting(colorScheme),
-        _buildMissionHero(colorScheme),
-        const SizedBox(height: AppSpacing.md),
-        _buildProjectContext(colorScheme),
-        const SizedBox(height: AppSpacing.lg),
-        _buildYesterdayStrip(colorScheme),
-      ],
-    );
-  }
-
-  Widget _buildResumeBody(ColorScheme colorScheme) {
-    final task = _interruptedTask;
-    final domainColor =
-        task == null ? colorScheme.primary : context.domainColor(task.domain);
-    final progress =
-        (_interruptedElapsedSeconds / deepWorkGoalSeconds).clamp(0.0, 1.0);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildGreeting(colorScheme),
-        _BriefCard(
-          borderColor: domainColor,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'SESSION INTERRUPTED',
-                style: AppTypography.labelLarge.copyWith(
-                  color: AppColors.priorityHigh,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          task?.title ?? 'Unknown task',
-                          style: AppTypography.headingMedium.copyWith(
-                            color: colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xs),
-                        Text(
-                          '${formatFocusClock(_interruptedElapsedSeconds)} elapsed',
-                          style: AppTypography.labelLarge.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(
-                    width: 56,
-                    height: 56,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          value: progress,
-                          strokeWidth: 4,
-                          backgroundColor:
-                              colorScheme.outlineVariant.withValues(alpha: 0.3),
-                          color: domainColor,
-                        ),
-                        Text(
-                          '${(progress * 100).round()}%',
-                          style: AppTypography.labelSmall.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _buildProjectContext(colorScheme),
-        const SizedBox(height: AppSpacing.lg),
-        _buildYesterdayStrip(colorScheme),
-      ],
-    );
-  }
-
-  Widget _buildEmptyDayBody(ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildGreeting(colorScheme),
-        _BriefCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "TODAY'S MISSION",
-                style: AppTypography.labelLarge.copyWith(
-                  color: colorScheme.primary,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Nothing scheduled yet.',
-                style: AppTypography.headingMedium.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Decide what matters today.',
-                style: AppTypography.bodyLarge.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _BriefCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'SUGGESTED ACTIONS',
-                style: AppTypography.labelLarge.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _SuggestionRow(
-                icon: Icons.list_alt_outlined,
-                label: 'Plan Your Day (Backlog)',
-                onTap: () => _completeBriefAndGo('/tasks'),
-              ),
-              _SuggestionRow(
-                icon: Icons.architecture_outlined,
-                label: 'Continue a Project (Projects)',
-                onTap: () => _completeBriefAndGo('/projects'),
-              ),
-              _SuggestionRow(
-                icon: Icons.account_tree_outlined,
-                label: 'Review Pipeline (Pipeline)',
-                onTap: () => _completeBriefAndGo('/opportunities'),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        _buildYesterdayStrip(colorScheme),
-      ],
-    );
-  }
-
-  Widget _buildReturningBody(ColorScheme colorScheme) {
-    final status = _absenceStatus!;
-    final urgent = status.overdueTaskCount > 0;
-    final borderColor =
-        urgent ? AppColors.priorityCritical : colorScheme.primary;
-
-    String recommendationTitle;
-    String recommendationBody;
-    if (status.overdueTaskCount > 0 && status.mostOverdueTask != null) {
-      recommendationTitle = status.mostOverdueTask!.title;
-      recommendationBody = 'Address overdue work first.';
-    } else if (status.weeklyReviewPending) {
-      recommendationTitle = 'Weekly review pending';
-      recommendationBody = 'Complete your weekly review.';
-    } else if (status.topActiveProject != null) {
-      final project = status.topActiveProject!;
-      recommendationTitle =
-          displayNextAction(project, _allTasks) ?? project.name;
-      recommendationBody =
-          'Continue active project work.';
-    } else {
-      recommendationTitle = 'Re-engage with your system';
-      recommendationBody = 'Pick one priority and start.';
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildGreeting(colorScheme, title: 'Welcome back, ${_greetingName()}.'),
-        _BriefCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'STATUS UPDATE',
-                style: AppTypography.labelLarge.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _StatusRow(
-                label: 'Overdue tasks',
-                value: '${status.overdueTaskCount}',
-                valueColor: status.overdueTaskCount > 0
-                    ? AppColors.priorityCritical
-                    : colorScheme.onSurfaceVariant,
-              ),
-              _StatusRow(
-                label: 'Active projects',
-                value: '${status.activeProjectCount}',
-                valueColor: colorScheme.primary,
-              ),
-              _StatusRow(
-                label: 'Weekly review',
-                value: status.weeklyReviewPending ? 'Pending' : 'Complete',
-                valueColor: status.weeklyReviewPending
-                    ? AppColors.priorityHigh
-                    : colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _BriefCard(
-          borderColor: borderColor,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'RECOMMENDATION',
-                style: AppTypography.labelLarge.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                recommendationTitle,
-                style: AppTypography.headingMedium.copyWith(
-                  color: colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                recommendationBody,
-                style: AppTypography.bodyLarge.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Center(
-          child: Text(
-            'Last active: ${_daysSinceLastOpen()} days ago',
-            style: AppTypography.labelLarge.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMissionHero(ColorScheme colorScheme) {
-    final task = _topTask;
-    final todayCount = ref.read(todayTasksProvider).value?.length ?? 0;
-    final borderColor =
-        task == null ? colorScheme.primary : context.domainColor(task.domain);
-
-    return _BriefCard(
-      borderColor: borderColor,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "TODAY'S MISSION",
-            style: AppTypography.labelLarge.copyWith(
-              color: colorScheme.primary,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (task != null) ...[
-            Text(
-              task.title,
-              style: AppTypography.headingMedium.copyWith(
-                color: colorScheme.onSurface,
-              ),
-            ),
-            if (task.estimatedDurationMinutes != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Est. ${task.estimatedDurationMinutes} min',
-                style: AppTypography.labelSmall.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ] else
-            Text(
-              '$todayCount tasks queued for today',
-              style: AppTypography.headingMedium.copyWith(
-                color: colorScheme.onSurface,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProjectContext(ColorScheme colorScheme) {
-    final project = _activeProject;
-    final nextActionLabel = project == null
-        ? null
-        : displayNextAction(project, _allTasks);
-
-    return _BriefCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'ACTIVE PROJECT',
-            style: AppTypography.labelLarge.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          if (project == null)
-            Text(
-              'No active projects. Start one from Projects.',
-              style: AppTypography.bodyLarge.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            )
-          else ...[
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: colorScheme.tertiary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    project.name,
-                    style: AppTypography.bodyLarge.copyWith(
-                      color: colorScheme.onSurface,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Divider(
-              height: 1,
-              color: colorScheme.outlineVariant.withValues(alpha: 0.1),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'NEXT ACTION',
-              style: AppTypography.labelSmall.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                letterSpacing: 1.5,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              nextActionLabel ??
-                  'Define the next action for this project.',
-              style: AppTypography.bodyLarge.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildYesterdayStrip(ColorScheme colorScheme) {
-    final summary = _yesterday;
-    if (summary == null) {
+  Widget _buildBody() {
+    final yesterday = _yesterday;
+    if (yesterday == null) {
       return const SizedBox.shrink();
     }
 
-    final hoursLabel = summary.focusHours >= 1
-        ? '${summary.focusHours.toStringAsFixed(1)}h focus'
-        : '${(summary.focusHours * 60).round()}m focus';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'YESTERDAY',
-          style: AppTypography.labelLarge.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            letterSpacing: 2,
-          ),
+    return switch (_briefState!) {
+      DailyBriefState.dailyBrief => DailyBriefDefaultView(
+          greeting: _timeAwareGreeting(),
+          topTask: _topTask,
+          todayCount: tasksForPerformanceDay(_allTasks).length,
+          activeProject: _activeProject,
+          allTasks: _allTasks,
+          yesterday: yesterday,
+          onEnterToday: _isNavigating ? null : () => _enterToday(),
         ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          '${summary.tasksCompleted} tasks  ·  $hoursLabel  ·  '
-          '${summary.sessionCount} sessions',
-          style: AppTypography.labelLarge.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActions(ColorScheme colorScheme) {
-    if (_briefState == DailyBriefState.resumeSession) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          FilledButton(
-            onPressed: _isNavigating ? null : _resumeInterruptedSession,
-            child: const Text('Resume Session →'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          OutlinedButton(
-            onPressed: _isNavigating
-                ? null
-                : () => _completeBrief(discardSession: true),
-            child: const Text('Discard Session'),
-          ),
-        ],
-      );
-    }
-
-    final label = switch (_briefState!) {
-      DailyBriefState.emptyDay => 'Plan My Day →',
-      DailyBriefState.returningAfterAbsence => 'Re-engage →',
-      _ => 'Enter Execution Mode →',
-    };
-
-    return FilledButton(
-      onPressed: _isNavigating ? null : () => _completeBrief(),
-      child: Text(label),
-    );
-  }
-}
-
-class _DailyBriefHeader extends StatelessWidget {
-  const _DailyBriefHeader({required this.clockLabel});
-
-  final String clockLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.sm,
-        AppSpacing.lg,
-        AppSpacing.sm,
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.terminal, size: 18, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            'CIARA OS',
-            style: AppTypography.labelLarge.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              letterSpacing: 2,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            clockLabel,
-            style: AppTypography.labelLarge.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BriefCard extends StatelessWidget {
-  const _BriefCard({
-    required this.child,
-    this.borderColor,
-  });
-
-  final Widget child;
-  final Color? borderColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-        ),
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: borderColor == null
+      DailyBriefState.resumeSession => DailyBriefResumeView(
+          greeting: _timeAwareGreeting(),
+          task: _interruptedTask,
+          elapsedSeconds: _interruptedElapsedSeconds,
+          activeProject: _activeProject,
+          yesterday: yesterday,
+          queueTasks: _todayTasks
+              .where((task) => task.id != _interruptedTask?.id)
+              .take(4)
+              .toList(),
+          onResume: _isNavigating ? null : _resumeInterruptedSession,
+          onDiscard: _isNavigating
               ? null
-              : Border(left: BorderSide(color: borderColor!, width: 4)),
+              : () => _enterToday(discardSession: true),
+          isBusy: _isNavigating,
         ),
-        child: Padding(
-          padding: EdgeInsets.only(left: borderColor == null ? 0 : AppSpacing.sm),
-          child: child,
+      DailyBriefState.emptyDay => DailyBriefEmptyDayView(
+          greeting: _timeAwareGreeting(),
+          weeklyFocusSeconds: _weeklyFocusSeconds,
+          isBusy: _isNavigating,
+          onEnterToday: _isNavigating ? null : () => _enterToday(),
         ),
-      ),
-    );
+      DailyBriefState.returningAfterAbsence => DailyBriefWelcomeBackView(
+          name: _greetingName(),
+          daysAway: _daysSinceLastOpen(),
+          status: _absenceStatus!,
+          recommendationTitle: _welcomeRecommendation().title,
+          recommendationBody: _welcomeRecommendation().body,
+          bufferTasks: _bufferTasks,
+          incompleteCount: countIncompleteHighPriority(_allTasks),
+          onReEngage:
+              _isNavigating ? null : () => _reEngageFromWelcomeBack(),
+          onEnterFullSystem: _isNavigating ? null : () => _enterToday(),
+          isBusy: _isNavigating,
+        ),
+    };
   }
-}
 
-class _SuggestionRow extends StatelessWidget {
-  const _SuggestionRow({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Text(
-                label,
-                style: AppTypography.bodyLarge.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              size: 18,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ],
+  Widget _buildFooterActions() {
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter): () {
+          if (!_isNavigating) {
+            _enterToday();
+          }
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: DailyBriefPrimaryCta(
+          label: 'ENTER EXECUTION MODE',
+          enabled: !_isNavigating,
+          showEnterHint: true,
+          onPressed: _isNavigating ? null : () => _enterToday(),
         ),
-      ),
-    );
-  }
-}
-
-class _StatusRow extends StatelessWidget {
-  const _StatusRow({
-    required this.label,
-    required this.value,
-    required this.valueColor,
-  });
-
-  final String label;
-  final String value;
-  final Color valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: AppTypography.bodyLarge.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          Text(
-            value,
-            style: AppTypography.labelLarge.copyWith(
-              color: valueColor,
-            ),
-          ),
-        ],
       ),
     );
   }

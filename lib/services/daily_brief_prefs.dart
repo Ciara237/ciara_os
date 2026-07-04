@@ -15,11 +15,17 @@ String dailyBriefTodayString([DateTime? date]) {
 class DailyBriefGateNotifier extends ChangeNotifier {
   SharedPreferences? _prefs;
   bool _isLoaded = false;
+  String? _dismissedForDate;
 
   bool get isLoaded => _isLoaded;
 
   Future<void> load(SharedPreferences prefs) async {
     _prefs = prefs;
+    final lastShown = prefs.getString(kDailyBriefLastShownKey);
+    final today = dailyBriefTodayString();
+    if (lastShown == today) {
+      _dismissedForDate = today;
+    }
     _isLoaded = true;
     notifyListeners();
   }
@@ -30,12 +36,23 @@ class DailyBriefGateNotifier extends ChangeNotifier {
       return false;
     }
 
+    final today = dailyBriefTodayString();
+    if (_dismissedForDate == today) {
+      return false;
+    }
+
     final lastShown = prefs.getString(kDailyBriefLastShownKey);
     if (lastShown == null) {
       return true;
     }
 
-    return lastShown != dailyBriefTodayString();
+    return lastShown != today;
+  }
+
+  /// Synchronous dismiss so router redirect allows leaving the brief immediately.
+  void dismissBriefSync() {
+    _dismissedForDate = dailyBriefTodayString();
+    notifyListeners();
   }
 
   DateTime? readLastOpenedAt() {
@@ -47,13 +64,14 @@ class DailyBriefGateNotifier extends ChangeNotifier {
   }
 
   Future<void> markShownToday() async {
+    dismissBriefSync();
+
     final prefs = _prefs;
     if (prefs == null) {
       return;
     }
 
     await prefs.setString(kDailyBriefLastShownKey, dailyBriefTodayString());
-    notifyListeners();
   }
 
   Future<void> markOpenedNow() async {
@@ -63,6 +81,5 @@ class DailyBriefGateNotifier extends ChangeNotifier {
     }
 
     await prefs.setString(kLastOpenedAtKey, DateTime.now().toIso8601String());
-    notifyListeners();
   }
 }

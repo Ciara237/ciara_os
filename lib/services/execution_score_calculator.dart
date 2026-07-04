@@ -49,7 +49,7 @@ abstract final class ExecutionScoreCalculator {
         : (metrics.averageFocusQuality! / 4) * 100;
 
     final streakConsistency =
-        (metrics.longestStreak / 7).clamp(0.0, 1.0).toDouble() * 100;
+        (metrics.currentStreak / 7).clamp(0.0, 1.0).toDouble() * 100;
 
     final score = taskCompletion * _taskWeight +
         deepWorkConsistency * _deepWorkWeight +

@@ -13,6 +13,7 @@ class AiContextBuilder {
     required List<Project> projects,
     required List<Opportunity> opportunities,
     required List<Task> allTasks,
+    required int weekFocusSeconds,
   }) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -65,10 +66,9 @@ class AiContextBuilder {
       weekCompleted: weekCompleted.toList(),
     );
 
-    final totalFocusSeconds = weekScope.fold<int>(
-      0,
-      (sum, task) => sum + task.totalFocusedSeconds,
-    );
+    final completionRate = weekScope.isEmpty
+        ? 0.0
+        : weekCompleted.length / weekScope.length;
 
     Task? mostPostponed;
     for (final task in allTasks) {
@@ -89,9 +89,10 @@ class AiContextBuilder {
           .toList(),
       'this_week': {
         'started_rate': startedRateForTasks(weekScope),
+        'completion_rate': completionRate,
         'tasks_completed': weekCompleted.length,
         'tasks_total': weekScope.length,
-        'total_focused_hours': totalFocusSeconds / 3600.0,
+        'total_focused_hours': weekFocusSeconds / 3600.0,
       },
       'active_projects': activeProjects.toList(),
       'opportunities_due_this_week': opportunitiesDue

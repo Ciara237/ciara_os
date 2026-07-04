@@ -34,33 +34,34 @@ class CompletedTasksEntryCard extends ConsumerWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm + 2,
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
             ),
             child: Row(
               children: [
                 Icon(
                   Icons.task_alt_outlined,
-                  size: 20,
+                  size: 24,
                   color: colorScheme.primary,
                 ),
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Execution Archive',
-                        style: AppTypography.bodyMedium.copyWith(
+                        style: AppTypography.bodyLarge.copyWith(
                           color: colorScheme.onSurface,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      const SizedBox(height: AppSpacing.xs),
                       Text(
                         completedCount == null
                             ? 'View completed tasks and accuracy history'
                             : '$completedCount completed · Weekly stats & archive',
-                        style: AppTypography.labelSmall.copyWith(
+                        style: AppTypography.bodyMedium.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -69,6 +70,7 @@ class CompletedTasksEntryCard extends ConsumerWidget {
                 ),
                 Icon(
                   Icons.chevron_right,
+                  size: 24,
                   color: colorScheme.onSurfaceVariant,
                 ),
               ],

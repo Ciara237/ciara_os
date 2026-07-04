@@ -9,6 +9,7 @@ import 'package:ciaraos/repositories/focus_session_repository.dart';
 import 'package:ciaraos/repositories/project_repository.dart';
 import 'package:ciaraos/repositories/task_repository.dart';
 import 'package:ciaraos/services/daily_activity_stats.dart';
+import 'package:ciaraos/services/day_execution_stats.dart';
 import 'package:ciaraos/services/execution_score_calculator.dart';
 import 'package:ciaraos/services/execution_timeline_generator.dart';
 import 'package:ciaraos/services/insight_generator.dart';
@@ -43,7 +44,10 @@ class WeeklyReviewService {
     final weekTasks = await _taskRepository.getTasksForWeek(monday);
     final sessions =
         await _focusSessionRepository.getCompletedSessionsForWeek(monday);
-    final dailyFocusSeconds = await DailyActivityStats.focusSecondsForWeek(monday);
+    final dailyFocusSeconds = await loadMergedFocusSecondsForWeek(
+      weekMonday: monday,
+      focusRepo: _focusSessionRepository,
+    );
     final streak = await DailyActivityStats.dailyStreak();
 
     final tasksInScope = {
@@ -56,14 +60,12 @@ class WeeklyReviewService {
       for (final task in completedTasks) task.id: task,
     }.values.toList();
     final startedRate = startedRateForTasks(inScopeTasks);
+    final tasksStarted = inScopeTasks.where((task) => task.started).length;
 
-    final sessionFocusSeconds =
-        sessions.fold<int>(0, (sum, s) => sum + s.durationSeconds);
-    final persistedFocus =
-        dailyFocusSeconds.fold<int>(0, (sum, seconds) => sum + seconds);
-    final deepWorkSeconds = sessionFocusSeconds > persistedFocus
-        ? sessionFocusSeconds
-        : persistedFocus;
+    final deepWorkSeconds = dailyFocusSeconds.fold<int>(
+      0,
+      (sum, seconds) => sum + seconds,
+    );
 
     final accuracyValues = completedTasks
         .where((task) => task.planningAccuracy != null)
@@ -99,10 +101,11 @@ class WeeklyReviewService {
       tasksCompleted: completedTasks.length,
       tasksInScope: tasksInScope,
       startedRate: startedRate,
+      tasksStarted: tasksStarted,
       deepWorkSeconds: deepWorkSeconds,
       focusSessionCount: sessions.length,
       planningAccuracy: planningAccuracy,
-      longestStreak: streak,
+      currentStreak: streak,
       biggestWin: biggestWin,
       averageFocusQuality: averageFocusQuality,
       dailyFocusSeconds: dailyFocusSeconds,
@@ -173,18 +176,16 @@ class WeeklyReviewService {
     final weekTasks = await _taskRepository.getTasksForWeek(monday);
     final sessions =
         await _focusSessionRepository.getCompletedSessionsForWeek(monday);
-    final dailyFocusSeconds = await DailyActivityStats.focusSecondsForWeek(monday);
+    final dailyFocusSeconds = await loadMergedFocusSecondsForWeek(
+      weekMonday: monday,
+      focusRepo: _focusSessionRepository,
+    );
     final streak = await DailyActivityStats.dailyStreak();
 
     final tasksInScope = {
       ...weekTasks.map((task) => task.id),
       ...completedTasks.map((task) => task.id),
     }.length;
-
-    final sessionFocusSeconds =
-        sessions.fold<int>(0, (sum, s) => sum + s.durationSeconds);
-    final persistedFocus =
-        dailyFocusSeconds.fold<int>(0, (sum, seconds) => sum + seconds);
 
     final accuracyValues = completedTasks
         .where((task) => task.planningAccuracy != null)
@@ -196,22 +197,26 @@ class WeeklyReviewService {
         .map((session) => focusQualityScore(session.focusQuality!).toDouble())
         .toList();
 
+    final priorInScope = {
+      for (final task in weekTasks) task.id: task,
+      for (final task in completedTasks) task.id: task,
+    }.values.toList();
+
     final metrics = WeeklyExecutionMetrics(
       weekOf: monday,
       tasksCompleted: completedTasks.length,
       tasksInScope: tasksInScope,
-      startedRate: startedRateForTasks({
-        for (final task in weekTasks) task.id: task,
-        for (final task in completedTasks) task.id: task,
-      }.values.toList()),
-      deepWorkSeconds: sessionFocusSeconds > persistedFocus
-          ? sessionFocusSeconds
-          : persistedFocus,
+      startedRate: startedRateForTasks(priorInScope),
+      tasksStarted: priorInScope.where((task) => task.started).length,
+      deepWorkSeconds: dailyFocusSeconds.fold<int>(
+        0,
+        (sum, seconds) => sum + seconds,
+      ),
       focusSessionCount: sessions.length,
       planningAccuracy: accuracyValues.isEmpty
           ? null
           : accuracyValues.reduce((a, b) => a + b) / accuracyValues.length,
-      longestStreak: streak,
+      currentStreak: streak,
       biggestWin: _resolveBiggestWin(completedTasks, sessions),
       averageFocusQuality: qualityScores.isEmpty
           ? null

@@ -6,6 +6,7 @@ import 'package:ciaraos/router/app_router.dart';
 import 'package:ciaraos/services/daily_brief_prefs.dart';
 import 'package:ciaraos/services/onboarding_notifier.dart';
 import 'package:ciaraos/theme/app_theme.dart';
+import 'package:ciaraos/widgets/daily_brief/daily_brief_gate_overlay.dart';
 import 'package:ciaraos/widgets/profile/profile_name_prompt_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,8 +66,10 @@ class _CiaraOsAppState extends ConsumerState<CiaraOsApp> {
       debugShowCheckedModeBanner: false,
       routerConfig: router,
       builder: (context, child) {
-        return ProfileNameSetupGate(
-          child: child ?? const SizedBox.shrink(),
+        return DailyBriefGateOverlay(
+          child: ProfileNameSetupGate(
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
     );

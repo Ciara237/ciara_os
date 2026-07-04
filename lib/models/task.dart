@@ -22,6 +22,7 @@ class Task {
     required this.focusSessionCount,
     this.planningAccuracy,
     this.lastFocusSessionAt,
+    this.completedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -42,6 +43,7 @@ class Task {
   final int focusSessionCount;
   final double? planningAccuracy;
   final DateTime? lastFocusSessionAt;
+  final DateTime? completedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -63,6 +65,7 @@ class Task {
       focusSessionCount: row.focusSessionCount,
       planningAccuracy: row.planningAccuracy,
       lastFocusSessionAt: row.lastFocusSessionAt,
+      completedAt: row.completedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     );
@@ -86,6 +89,7 @@ class Task {
       focusSessionCount: Value(focusSessionCount),
       planningAccuracy: Value(planningAccuracy),
       lastFocusSessionAt: Value(lastFocusSessionAt),
+      completedAt: Value(completedAt),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -108,6 +112,7 @@ class Task {
     int? focusSessionCount,
     double? planningAccuracy,
     DateTime? lastFocusSessionAt,
+    DateTime? completedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
     bool clearDeadline = false,
@@ -116,6 +121,7 @@ class Task {
     bool clearEstimatedDuration = false,
     bool clearPlanningAccuracy = false,
     bool clearLastFocusSessionAt = false,
+    bool clearCompletedAt = false,
   }) {
     return Task(
       id: id ?? this.id,
@@ -140,17 +146,47 @@ class Task {
       lastFocusSessionAt: clearLastFocusSessionAt
           ? null
           : (lastFocusSessionAt ?? this.lastFocusSessionAt),
+      completedAt:
+          clearCompletedAt ? null : (completedAt ?? this.completedAt),
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
-  Task markedDone({DateTime? updatedAt}) {
+  Task markedDone({DateTime? completedAt}) {
+    final now = DateTime.now();
+    final resolvedCompletedAt = completedAt ??
+        resolveTaskCompletionInstant(
+          markedAt: now,
+          lastFocusSessionAt: lastFocusSessionAt,
+        );
     return copyWith(
       status: TaskStatus.done,
       today: false,
       started: false,
-      updatedAt: updatedAt ?? DateTime.now(),
+      completedAt: resolvedCompletedAt,
+      updatedAt: now,
     );
   }
+}
+
+DateTime resolveTaskCompletionInstant({
+  required DateTime markedAt,
+  required DateTime? lastFocusSessionAt,
+}) {
+  if (lastFocusSessionAt == null) {
+    return markedAt;
+  }
+
+  final gap = markedAt.difference(lastFocusSessionAt);
+  final markedDay = DateTime(markedAt.year, markedAt.month, markedAt.day);
+  final focusDay = DateTime(
+    lastFocusSessionAt.year,
+    lastFocusSessionAt.month,
+    lastFocusSessionAt.day,
+  );
+  if (focusDay.isBefore(markedDay) && gap.inHours <= 48) {
+    return lastFocusSessionAt;
+  }
+  return markedAt;
 }

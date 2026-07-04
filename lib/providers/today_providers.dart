@@ -9,6 +9,7 @@ import 'package:ciaraos/providers/focus_session_repository_provider.dart';
 import 'package:ciaraos/providers/focus_session_provider.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/services/daily_activity_stats.dart';
+import 'package:ciaraos/services/day_execution_stats.dart';
 import 'package:ciaraos/utils/task_filter_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -96,7 +97,7 @@ final todayPerformanceProvider =
   ref.watch(dailyStatsRevisionProvider);
   final now = DateTime.now();
   final yesterday = now.subtract(const Duration(days: 1));
-  final allTasks = ref.watch(allTasksProvider).value ?? const <Task>[];
+  final allTasks = await ref.watch(allTasksProvider.future);
   final dayTasks = tasksForPerformanceDay(allTasks, now: now);
   final yesterdayDayTasks = tasksForPerformanceDay(allTasks, now: yesterday);
 
@@ -105,16 +106,26 @@ final todayPerformanceProvider =
   final completedYesterday =
       allTasks.where((task) => taskCompletedToday(task, now: yesterday)).length;
 
-  final persistedFocus = await DailyActivityStats.todayFocusSeconds();
+  final focusRepo = ref.read(focusSessionRepositoryProvider);
   final session = ref.read(focusSessionProvider);
   final sessionFocus = session.isActive
       ? ref.read(focusSessionProvider.notifier).unflushedFocusSeconds
       : 0;
-  final focusSeconds = persistedFocus + sessionFocus;
-  final yesterdayFocus = await DailyActivityStats.focusSecondsFor(yesterday);
+  final todaySummary = await loadDayExecutionSummary(
+    day: now,
+    allTasks: allTasks,
+    focusRepo: focusRepo,
+    additionalFocusSeconds: sessionFocus,
+  );
+  final focusSeconds = todaySummary.focusSeconds;
 
-  final focusRepo = ref.read(focusSessionRepositoryProvider);
   final todaySessions = await focusRepo.getCompletedSessionsForDay(now);
+  final yesterdaySummary = await loadDayExecutionSummary(
+    day: yesterday,
+    allTasks: allTasks,
+    focusRepo: focusRepo,
+  );
+  final yesterdayFocus = yesterdaySummary.focusSeconds;
   final yesterdaySessions =
       await focusRepo.getCompletedSessionsForDay(yesterday);
   final sessionCountToday =
@@ -168,12 +179,12 @@ final todayPerformanceProvider =
     ),
     focusTrend: PerformanceMetricTrend.fromHoursDelta(focusHoursDelta),
     sessionsTrend: PerformanceMetricTrend.fromAbsoluteDelta(
-      sessionCountToday - yesterdaySessions.length,
+      todaySessions.length - yesterdaySummary.sessionCount,
       unit: '',
       mode: TrendDisplayMode.absolute,
     ),
     qualityTrend: PerformanceMetricTrend.fromPercentDelta(qualityDelta),
-    accuracyTrend: PerformanceMetricTrend.fromPercentDelta(accuracyDelta),
+    accuracyTrend: PerformanceMetricTrend.fromRatePointDelta(accuracyDelta),
     streakTrend: PerformanceMetricTrend.fromAbsoluteDelta(
       dailyStreak - yesterdayStreak,
       unit: 'd',

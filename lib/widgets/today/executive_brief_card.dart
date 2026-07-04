@@ -1,10 +1,12 @@
 import 'package:ciaraos/models/executive_brief.dart';
 import 'package:ciaraos/providers/ai_providers.dart';
 import 'package:ciaraos/providers/calendar_providers.dart';
+import 'package:ciaraos/providers/focus_session_repository_provider.dart';
 import 'package:ciaraos/providers/opportunity_providers.dart';
 import 'package:ciaraos/providers/project_providers.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/services/ai_context_builder.dart';
+import 'package:ciaraos/services/day_execution_stats.dart';
 import 'package:ciaraos/services/executive_brief_context_service.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
@@ -53,12 +55,21 @@ class _ExecutiveBriefCardState extends ConsumerState<ExecutiveBriefCard> {
     final opportunities = ref.read(allOpportunitiesProvider).value ?? [];
     final allTasks = ref.read(allTasksProvider).value ?? [];
 
+    final focusRepo = ref.read(focusSessionRepositoryProvider);
+    final weeklyFocus = await loadMergedFocusSecondsForWeek(
+      weekMonday: monday,
+      focusRepo: focusRepo,
+    );
+    final weekFocusSeconds =
+        weeklyFocus.fold<int>(0, (sum, seconds) => sum + seconds);
+
     final payload = AiContextBuilder().build(
       todayTasks: todayTasks,
       weekTasks: weekTasks,
       projects: projects,
       opportunities: opportunities,
       allTasks: allTasks,
+      weekFocusSeconds: weekFocusSeconds,
     );
 
     await ref.read(executiveBriefProvider.notifier).fetchBrief(payload);

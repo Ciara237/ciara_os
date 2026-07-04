@@ -2,6 +2,7 @@ import 'package:ciaraos/models/enums/execution_day_quality.dart';
 import 'package:ciaraos/models/execution_timeline_day.dart';
 import 'package:ciaraos/models/focus_session_record.dart';
 import 'package:ciaraos/models/task.dart';
+import 'package:ciaraos/utils/task_filter_utils.dart';
 abstract final class ExecutionTimelineGenerator {
   static const _dayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
@@ -24,10 +25,9 @@ abstract final class ExecutionTimelineGenerator {
       final dayStart = DateTime(day.year, day.month, day.day);
       final dayEnd = dayStart.add(const Duration(days: 1));
 
-      final completedOnDay = completedTasks.where((task) {
-        final updated = task.updatedAt;
-        return !updated.isBefore(dayStart) && updated.isBefore(dayEnd);
-      }).length;
+      final completedOnDay = completedTasks
+          .where((task) => taskCompletedOnDay(task, dayStart))
+          .length;
 
       final focusSeconds = dailyFocusSeconds[index];
       final sessionCount = sessions.where((session) {

@@ -58,7 +58,9 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
   int _focusSessionCount = 0;
   double? _planningAccuracy;
   DateTime? _lastFocusSessionAt;
+  DateTime? _completedAt;
   DateTime? _createdAt;
+  TaskStatus? _initialStatus;
 
   @override
   void initState() {
@@ -108,8 +110,10 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
     _focusSessionCount = task.focusSessionCount;
     _planningAccuracy = task.planningAccuracy;
     _lastFocusSessionAt = task.lastFocusSessionAt;
+    _completedAt = task.completedAt;
     _estimatedDurationController.text = task.estimatedDurationMinutes?.toString() ?? '';
     _createdAt = task.createdAt;
+    _initialStatus = task.status;
   }
 
   int? _parsedEstimatedDuration() {
@@ -155,6 +159,18 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
 
     try {
       if (widget.isEditMode) {
+        DateTime? completedAt = _completedAt;
+        if (_selectedStatus == TaskStatus.done) {
+          if (_initialStatus != TaskStatus.done) {
+            completedAt = resolveTaskCompletionInstant(
+              markedAt: now,
+              lastFocusSessionAt: _lastFocusSessionAt,
+            );
+          }
+        } else {
+          completedAt = null;
+        }
+
         final task = Task(
           id: int.parse(widget.taskId!),
           title: title,
@@ -174,6 +190,7 @@ class _TaskCreateEditScreenState extends ConsumerState<TaskCreateEditScreen> {
           focusSessionCount: _focusSessionCount,
           planningAccuracy: _planningAccuracy,
           lastFocusSessionAt: _lastFocusSessionAt,
+          completedAt: completedAt,
           createdAt: _createdAt ?? now,
           updatedAt: now,
         );

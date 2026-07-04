@@ -41,11 +41,6 @@ Future<void> persistPlanningAccuracyForTask(
   }
 
   await repository.update(
-    task
-        .copyWith(
-          planningAccuracy: accuracy,
-          updatedAt: DateTime.now(),
-        )
-        .toCompanion(),
+    task.copyWith(planningAccuracy: accuracy).toCompanion(),
   );
 }

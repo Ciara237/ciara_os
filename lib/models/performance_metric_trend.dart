@@ -100,8 +100,40 @@ class PerformanceMetricTrend {
       TrendDisplayMode.stable => 'Stable',
       TrendDisplayMode.hours => _signedHours(),
       TrendDisplayMode.absolute => _signedAbsolute(),
+      TrendDisplayMode.ratePoints => _signedRatePoints(),
       TrendDisplayMode.percent => _signedPercent(),
     };
+  }
+
+  static PerformanceMetricTrend fromRatePointDelta(double? delta) {
+    if (delta == null) {
+      return const PerformanceMetricTrend.none();
+    }
+    if (delta.abs() < 0.5) {
+      return const PerformanceMetricTrend(
+        direction: PerformanceTrendDirection.flat,
+        percentDelta: 0,
+        displayMode: TrendDisplayMode.ratePoints,
+      );
+    }
+    return PerformanceMetricTrend(
+      direction: delta > 0
+          ? PerformanceTrendDirection.up
+          : PerformanceTrendDirection.down,
+      percentDelta: delta.abs(),
+      displayMode: TrendDisplayMode.ratePoints,
+    );
+  }
+
+  String _signedRatePoints() {
+    if (direction == PerformanceTrendDirection.none) {
+      return '';
+    }
+    if (direction == PerformanceTrendDirection.flat) {
+      return 'Stable';
+    }
+    final sign = direction == PerformanceTrendDirection.up ? '+' : '-';
+    return '$sign${percentDelta?.round() ?? 0}pp';
   }
 
   String _signedPercent() {
@@ -144,7 +176,7 @@ class PerformanceMetricTrend {
   }
 }
 
-enum TrendDisplayMode { percent, hours, absolute, stable }
+enum TrendDisplayMode { percent, hours, absolute, stable, ratePoints }
 
 double? relativePercentChange(num today, num yesterday) {
   if (yesterday == 0) {

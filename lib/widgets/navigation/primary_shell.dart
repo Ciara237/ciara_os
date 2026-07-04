@@ -1,3 +1,4 @@
+import 'package:ciaraos/providers/daily_brief_gate_provider.dart';
 import 'package:ciaraos/providers/focus_session_provider.dart';
 import 'package:ciaraos/providers/session_recovery_provider.dart';
 import 'package:ciaraos/providers/focus_session_repository_provider.dart';
@@ -52,6 +53,14 @@ class _PrimaryShellScaffoldState extends ConsumerState<PrimaryShellScaffold> {
     if (_recoveryChecked || !mounted) {
       return;
     }
+
+    final location = GoRouterState.of(context).uri.path;
+    if (location == '/daily-brief' ||
+        ref.read(dailyBriefGateProvider).shouldShowToday()) {
+      _recoveryChecked = true;
+      return;
+    }
+
     _recoveryChecked = true;
 
     if (ref.read(sessionRecoveryHandledProvider)) {
@@ -92,18 +101,21 @@ class _PrimaryShellScaffoldState extends ConsumerState<PrimaryShellScaffold> {
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
-    final tabIndex = PrimaryShellScaffold.tabIndexForLocation(location);
+    final hideChrome = location == '/daily-brief';
+    final tabIndex = hideChrome
+        ? ref.read(selectedTabProvider)
+        : PrimaryShellScaffold.tabIndexForLocation(location);
 
-    if (ref.read(selectedTabProvider) != tabIndex) {
+    if (!hideChrome && ref.read(selectedTabProvider) != tabIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         ref.read(selectedTabProvider.notifier).state = tabIndex;
       });
     }
 
     return Scaffold(
-      drawer: const PrimaryDrawer(),
+      drawer: hideChrome ? null : const PrimaryDrawer(),
       body: widget.child,
-      bottomNavigationBar: const PrimaryNavBar(),
+      bottomNavigationBar: hideChrome ? null : const PrimaryNavBar(),
     );
   }
 }

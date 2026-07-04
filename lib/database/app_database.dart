@@ -47,7 +47,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -126,6 +126,34 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 10) {
             await migrator.createTable(securityManualLogs);
+          }
+          if (from < 11) {
+            await migrator.addColumn(tasks, tasks.completedAt);
+            final doneRows = await (select(tasks)
+                  ..where((task) => task.status.equals('done')))
+                .get();
+            for (final row in doneRows) {
+              var completedAt = row.updatedAt;
+              final lastFocus = row.lastFocusSessionAt;
+              if (lastFocus != null) {
+                final gap = row.updatedAt.difference(lastFocus);
+                final updatedDay = DateTime(
+                  row.updatedAt.year,
+                  row.updatedAt.month,
+                  row.updatedAt.day,
+                );
+                final focusDay = DateTime(
+                  lastFocus.year,
+                  lastFocus.month,
+                  lastFocus.day,
+                );
+                if (focusDay.isBefore(updatedDay) && gap.inHours <= 48) {
+                  completedAt = lastFocus;
+                }
+              }
+              await (update(tasks)..where((task) => task.id.equals(row.id)))
+                  .write(TasksCompanion(completedAt: Value(completedAt)));
+            }
           }
         },
       );

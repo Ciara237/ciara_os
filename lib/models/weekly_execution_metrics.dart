@@ -8,10 +8,11 @@ class WeeklyExecutionMetrics {
     required this.tasksCompleted,
     required this.tasksInScope,
     required this.startedRate,
+    required this.tasksStarted,
     required this.deepWorkSeconds,
     required this.focusSessionCount,
     required this.planningAccuracy,
-    required this.longestStreak,
+    required this.currentStreak,
     required this.biggestWin,
     required this.averageFocusQuality,
     required this.dailyFocusSeconds,
@@ -25,10 +26,11 @@ class WeeklyExecutionMetrics {
   final int tasksCompleted;
   final int tasksInScope;
   final double startedRate;
+  final int tasksStarted;
   final int deepWorkSeconds;
   final int focusSessionCount;
   final double? planningAccuracy;
-  final int longestStreak;
+  final int currentStreak;
   final String? biggestWin;
   final double? averageFocusQuality;
   final List<int> dailyFocusSeconds;

@@ -78,8 +78,8 @@ class TaskRepository {
     final rows = await (_db.select(_db.tasks)..where(
           (task) =>
               task.status.equals('done') &
-              task.updatedAt.isBiggerOrEqualValue(normalizedStart) &
-              task.updatedAt.isSmallerThanValue(normalizedEnd),
+              task.completedAt.isBiggerOrEqualValue(normalizedStart) &
+              task.completedAt.isSmallerThanValue(normalizedEnd),
         ))
         .get();
     return rows.map(Task.fromRow).toList();

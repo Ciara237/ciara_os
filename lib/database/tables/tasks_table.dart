@@ -44,6 +44,9 @@ class Tasks extends Table {
 
   DateTimeColumn get lastFocusSessionAt => dateTime().nullable()();
 
+  /// Immutable completion timestamp — not bumped by later metadata edits.
+  DateTimeColumn get completedAt => dateTime().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
 
   DateTimeColumn get updatedAt => dateTime()();

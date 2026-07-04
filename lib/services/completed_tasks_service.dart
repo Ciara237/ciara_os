@@ -24,7 +24,11 @@ class CompletedTasksService {
     final completed = allTasks
         .where((task) => task.status == TaskStatus.done)
         .toList()
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      ..sort((a, b) {
+        final aInstant = taskCompletionInstant(a) ?? a.updatedAt;
+        final bInstant = taskCompletionInstant(b) ?? b.updatedAt;
+        return bInstant.compareTo(aInstant);
+      });
 
     final stats = _computeStats(completed, clock);
     final weeklyDistribution = _weeklyDistribution(completed, clock);
@@ -47,7 +51,7 @@ class CompletedTasksService {
     final archiveTasks = <Task>[];
 
     for (final task in filtered) {
-      final completedDay = _startOfDay(task.updatedAt);
+      final completedDay = calendarDay(taskCompletionInstant(task) ?? task.updatedAt);
       if (isSameCalendarDay(completedDay, today)) {
         todayTasks.add(task);
       } else if (isSameCalendarDay(completedDay, yesterday)) {
@@ -99,12 +103,12 @@ class CompletedTasksService {
     final lastWeekStart = weekStart.subtract(const Duration(days: 7));
 
     final thisWeek = completed.where((task) {
-      final day = task.updatedAt;
+      final day = taskCompletionInstant(task) ?? task.updatedAt;
       return !day.isBefore(weekStart) && day.isBefore(weekEnd);
     }).toList();
 
     final lastWeek = completed.where((task) {
-      final day = task.updatedAt;
+      final day = taskCompletionInstant(task) ?? task.updatedAt;
       return !day.isBefore(lastWeekStart) && day.isBefore(weekStart);
     }).length;
 
@@ -158,7 +162,7 @@ class CompletedTasksService {
       final day = weekStart.add(Duration(days: index));
       final nextDay = day.add(const Duration(days: 1));
       final count = completed.where((task) {
-        final completedAt = task.updatedAt;
+        final completedAt = taskCompletionInstant(task) ?? task.updatedAt;
         return !completedAt.isBefore(day) && completedAt.isBefore(nextDay);
       }).length;
 

@@ -156,8 +156,8 @@ class ExecutionSummaryCard extends StatelessWidget {
           colorScheme,
         ),
         _metricCell(
-          'Longest Streak',
-          '${metrics.longestStreak}d',
+          'Current Streak',
+          '${metrics.currentStreak}d',
           colorScheme,
         ),
         _metricCell(

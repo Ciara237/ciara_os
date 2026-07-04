@@ -1,16 +1,19 @@
 import 'package:ciaraos/models/domain_analytics.dart';
 import 'package:ciaraos/models/enums/domain.dart';
 import 'package:ciaraos/models/enums/task_status.dart';
+import 'package:ciaraos/models/focus_session_record.dart';
 import 'package:ciaraos/models/planning_accuracy_data.dart';
 import 'package:ciaraos/models/productivity_trends_data.dart';
 import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/providers/database_provider.dart';
+import 'package:ciaraos/providers/focus_session_repository_provider.dart';
 import 'package:ciaraos/providers/weekly_review_providers.dart';
 import 'package:ciaraos/repositories/task_repository.dart';
 import 'package:ciaraos/services/domain_analytics_service.dart';
 import 'package:ciaraos/services/planning_accuracy_service.dart';
 import 'package:ciaraos/services/productivity_trends_service.dart';
 import 'package:ciaraos/services/task_completion_service.dart';
+import 'package:ciaraos/services/day_execution_stats.dart';
 import 'package:ciaraos/utils/planning_accuracy_utils.dart';
 import 'package:ciaraos/utils/review_stats_utils.dart';
 import 'package:ciaraos/utils/task_filter_utils.dart';
@@ -78,9 +81,32 @@ final domainBreakdownProvider =
     FutureProvider.family<DomainBreakdownData, String>((ref, period) async {
   ref.watch(allTasksProvider);
   final tasks = await ref.watch(allTasksProvider.future);
+  final focusRepo = ref.read(focusSessionRepositoryProvider);
+
+  List<FocusSessionRecord> sessions = const [];
+  if (period == 'week') {
+    final weekMonday = mondayOfWeek(DateTime.now());
+    sessions = await focusRepo.getCompletedSessionsForWeek(weekMonday);
+  } else if (period == 'month') {
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final weeksInMonth = <DateTime>{};
+    for (var day = 0; day < 31; day++) {
+      final date = monthStart.add(Duration(days: day));
+      if (date.month != monthStart.month) {
+        break;
+      }
+      weeksInMonth.add(mondayOfWeek(date));
+    }
+    final sessionLists = await Future.wait(
+      weeksInMonth.map(focusRepo.getCompletedSessionsForWeek),
+    );
+    sessions = sessionLists.expand((list) => list).toList();
+  }
+
   return DomainAnalyticsService().compute(
     tasks: tasks,
-    sessions: const [],
+    sessions: sessions,
     period: period,
   );
 });
@@ -111,8 +137,25 @@ final planningAccuracyProvider = FutureProvider<PlanningAccuracyData>((ref) asyn
 final productivityTrendsProvider =
     FutureProvider<ProductivityTrendsData>((ref) async {
   ref.watch(allWeeklyReviewsProvider);
-  ref.watch(allTasksProvider);
   final reviews = await ref.watch(allWeeklyReviewsProvider.future);
-  final tasks = await ref.watch(allTasksProvider.future);
-  return ProductivityTrendsService().compute(reviews: reviews, tasks: tasks);
+  final focusRepo = ref.read(focusSessionRepositoryProvider);
+  final now = DateTime.now();
+  final currentWeekStart = mondayOfWeek(now);
+
+  final focusHoursByWeek = <DateTime, double>{};
+  for (var index = 0; index < 8; index++) {
+    final weeksAgo = 7 - index;
+    final weekStart = currentWeekStart.subtract(Duration(days: weeksAgo * 7));
+    final dailySeconds = await loadMergedFocusSecondsForWeek(
+      weekMonday: weekStart,
+      focusRepo: focusRepo,
+    );
+    focusHoursByWeek[weekStart] =
+        dailySeconds.fold<int>(0, (sum, seconds) => sum + seconds) / 3600.0;
+  }
+
+  return ProductivityTrendsService().compute(
+    reviews: reviews,
+    focusHoursByWeek: focusHoursByWeek,
+  );
 });

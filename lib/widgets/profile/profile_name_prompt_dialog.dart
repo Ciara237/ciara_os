@@ -1,3 +1,4 @@
+import 'package:ciaraos/providers/daily_brief_gate_provider.dart';
 import 'package:ciaraos/providers/onboarding_provider.dart';
 import 'package:ciaraos/providers/profile_providers.dart';
 import 'package:ciaraos/router/app_router.dart';
@@ -155,7 +156,8 @@ class _ProfileNameSetupGateState extends ConsumerState<ProfileNameSetupGate> {
     final location = configuration.isEmpty
         ? '/'
         : configuration.last.matchedLocation;
-    if (location == '/daily-brief') {
+    if (location == '/daily-brief' ||
+        ref.read(dailyBriefGateProvider).shouldShowToday()) {
       return;
     }
 

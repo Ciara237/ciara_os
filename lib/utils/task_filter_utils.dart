@@ -79,13 +79,37 @@ bool _matchesDeadlineFilter(
 bool _isSameDay(DateTime a, DateTime b) => isSameCalendarDay(a, b);
 
 bool isSameCalendarDay(DateTime a, DateTime b) {
-  return a.year == b.year && a.month == b.month && a.day == b.day;
+  final localA = a.toLocal();
+  final localB = b.toLocal();
+  return localA.year == localB.year &&
+      localA.month == localB.month &&
+      localA.day == localB.day;
+}
+
+DateTime calendarDay(DateTime day) {
+  final local = day.toLocal();
+  return DateTime(local.year, local.month, local.day);
+}
+
+/// Stable completion instant — [completedAt] when set, otherwise [updatedAt].
+DateTime? taskCompletionInstant(Task task) {
+  if (task.status != TaskStatus.done) {
+    return null;
+  }
+  return task.completedAt ?? task.updatedAt;
+}
+
+bool taskCompletedOnDay(Task task, DateTime day) {
+  final instant = taskCompletionInstant(task);
+  if (instant == null) {
+    return false;
+  }
+  return isSameCalendarDay(instant, day);
 }
 
 bool taskCompletedToday(Task task, {DateTime? now}) {
   final clock = now ?? DateTime.now();
-  return task.status == TaskStatus.done &&
-      isSameCalendarDay(task.updatedAt, clock);
+  return taskCompletedOnDay(task, clock);
 }
 
 /// Today's plan plus tasks completed today (even if removed from the today queue).

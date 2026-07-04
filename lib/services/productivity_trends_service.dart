@@ -1,5 +1,4 @@
 import 'package:ciaraos/models/productivity_trends_data.dart';
-import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/models/weekly_review.dart';
 
 class ProductivityTrendsService {
@@ -8,10 +7,13 @@ class ProductivityTrendsService {
 
   ProductivityTrendsData compute({
     required List<WeeklyReview> reviews,
-    required List<Task> tasks,
+    required Map<DateTime, double> focusHoursByWeek,
   }) {
     final reviewCount = reviews.length;
-    final weeks = _buildWeeks(reviews: reviews, tasks: tasks);
+    final weeks = _buildWeeks(
+      reviews: reviews,
+      focusHoursByWeek: focusHoursByWeek,
+    );
     final scoredWeeks =
         weeks.where((week) => week.executionScore != null).toList();
     final startedWeeks =
@@ -62,7 +64,7 @@ class ProductivityTrendsService {
 
   List<WeeklyTrendPoint> _buildWeeks({
     required List<WeeklyReview> reviews,
-    required List<Task> tasks,
+    required Map<DateTime, double> focusHoursByWeek,
   }) {
     final now = DateTime.now();
     final currentWeekStart = _startOfWeek(now);
@@ -74,19 +76,8 @@ class ProductivityTrendsService {
     return List.generate(_trendWeekCount, (index) {
       final weeksAgo = _trendWeekCount - 1 - index;
       final weekStart = currentWeekStart.subtract(Duration(days: weeksAgo * 7));
-      final weekEnd = weekStart.add(const Duration(days: 7));
       final review = reviewByWeek[weekStart];
-
-      final focusSeconds = tasks.fold<int>(0, (total, task) {
-        final anchor = task.lastFocusSessionAt;
-        if (anchor == null) {
-          return total;
-        }
-        if (anchor.isBefore(weekStart) || !anchor.isBefore(weekEnd)) {
-          return total;
-        }
-        return total + task.totalFocusedSeconds;
-      });
+      final focusHours = focusHoursByWeek[weekStart];
 
       return WeeklyTrendPoint(
         weekStart: weekStart,
@@ -95,7 +86,7 @@ class ProductivityTrendsService {
         startedRate: review?.startedRate != null
             ? review!.startedRate! * 100
             : null,
-        focusHours: focusSeconds > 0 ? focusSeconds / 3600 : null,
+        focusHours: focusHours != null && focusHours > 0 ? focusHours : null,
         hasReview: review != null,
       );
     });

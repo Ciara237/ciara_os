@@ -74,7 +74,7 @@ The AI Executive Agent is tuned for that profile: it cites real task names, pipe
 | **Today queue** | What you committed to execute today | `tasks.today == true` |
 | **Started** | You are actively working this task (focus session) | `tasks.started` + `focus_sessions` |
 | **Deep work** | Timed focus on one task toward a 45-min goal | `focus_sessions` rows |
-| **Done** | Task is complete | `tasks.status == done` |
+| **Done** | Task is complete | `tasks.status == done`; completion day from `tasks.completedAt` |
 | **Project** | Multi-step outcome with a next action | `projects` table |
 | **Pipeline lead** | Job/program opportunity with stages & documents | `opportunities` table |
 | **Executive Brief** | AI morning mission from live context | Groq via local backend |
@@ -92,8 +92,11 @@ When you **mark a task complete**, `Task.markedDone()` sets:
 - `status: done`  
 - `today: false` (removes from Today list)  
 - `started: false`  
+- `completedAt` — immutable completion timestamp (not bumped by later metadata edits)
 
-Completed work still counts in **Performance Snapshot** for the calendar day (see [Performance Snapshot](#performance-snapshot-today)).
+If deep work ended on a prior calendar day and you mark done within 48 hours (e.g. after midnight), `completedAt` is attributed to the last focus session day so yesterday summaries stay honest.
+
+Completed work still counts in **Performance Snapshot** and **Daily Brief** for the completion calendar day (see [Performance Snapshot](#performance-snapshot-today) and [Day execution stats](#day-execution-stats)).
 
 ---
 
@@ -150,7 +153,7 @@ flowchart TD
 lib/
 ├── main.dart                      # App entry, onboarding bootstrap, theme
 ├── router/app_router.dart         # GoRouter routes + onboarding redirect
-├── database/                      # Drift schema (v10), migrations
+├── database/                      # Drift schema (v11), migrations
 ├── models/                        # Domain types, enums, ExecutiveBrief
 ├── repositories/                  # CRUD + queries (tasks, projects, …)
 ├── providers/                     # Riverpod wiring (incl. ai_providers)
@@ -216,7 +219,20 @@ The Flutter app runs fully offline for core execution. The optional backend powe
 
 ### Onboarding gate
 
-Until `onboarding_complete` is set in SharedPreferences, all routes redirect to `/onboarding`. After completion, `/onboarding` redirects to `/`.
+Until `onboarding_complete` is set in SharedPreferences, all routes redirect to `/onboarding`. After completion, `/onboarding` redirects to `/daily-brief` (if the morning gate applies) or `/`.
+
+### Daily Brief gate
+
+First open each calendar day redirects to `/daily-brief` until dismissed. Gate state: `DailyBriefGateNotifier` (`services/daily_brief_prefs.dart`) + SharedPreferences key `daily_brief_last_shown`.
+
+| Mechanism | Behavior |
+|-----------|----------|
+| `shouldShowToday()` | `true` until brief dismissed for today's date |
+| `dismissBriefSync()` | In-memory dismiss + `notifyListeners()` **before** navigation (prevents redirect loop) |
+| `markShownToday()` | Persists dismiss to SharedPreferences |
+| `?review=true` | Optional re-open from Today header; exit via `pop()` instead of gate |
+
+**Navigators:** `/daily-brief` and `/onboarding` use `rootNavigatorKey` (full-screen, **no bottom nav**). Primary tabs use `shellNavigatorKey` inside `ShellRoute`. Exiting the brief calls `router.go('/')` after `dismissBriefSync()`.
 
 ### Primary shell (`ShellRoute`)
 
@@ -290,7 +306,7 @@ Drawer is opened from the **left avatar** only (not a separate menu icon). Profi
 
 ## Data model
 
-**Schema version:** 10
+**Schema version:** 11
 
 Additional tables (v7–v10): `certifications`, `notes`, `resources`, `security_manual_logs`.
 
@@ -314,9 +330,10 @@ Additional tables (v7–v10): `certifications`, `notes`, `resources`, `security_
 | `focusSessionCount` | int | Completed session count |
 | `planningAccuracy` | real? | 0–100, set on task completion |
 | `lastFocusSessionAt` | DateTime? | Last completed session |
+| `completedAt` | DateTime? | Immutable completion instant (v11); used for per-day counts |
 | `createdAt` / `updatedAt` | DateTime | Audit timestamps |
 
-**Completion helper:** `Task.markedDone()` → `done` + `today: false` + `started: false`.
+**Completion helper:** `Task.markedDone()` → `done` + `today: false` + `started: false` + `completedAt` (with cross-midnight attribution when applicable). Planning accuracy persistence does **not** bump `updatedAt`.
 
 ### Focus sessions (`focus_sessions`)
 
@@ -425,6 +442,7 @@ Merged into Security Practice recent-activity sections alongside API-synced data
 | v8 | `notes`, `resources` tables |
 | v9 | Notion sync columns on `notes` |
 | v10 | `security_manual_logs` table |
+| v11 | `tasks.completedAt`; backfill from `updatedAt` with cross-midnight focus attribution |
 
 ---
 
@@ -446,6 +464,18 @@ Ciara OS tracks **execution quality**, not just elapsed time.
 | Focus uptime (daily) | Seconds | SharedPreferences | Performance Snapshot |
 | Daily streak | Days | SharedPreferences | Performance Snapshot |
 | Weekly started-rate | % | Computed | Review metrics grid (`startedRate` on in-scope week tasks) |
+
+### Day execution stats
+
+**Service:** `services/day_execution_stats.dart` — canonical per-day totals shared by Today, Daily Brief, and Review.
+
+| Metric | Rule |
+|--------|------|
+| Tasks completed | `taskCompletedOnDay()` via `taskCompletionInstant()` → `completedAt ?? updatedAt` (local calendar day) |
+| Focus seconds | `max(session total for day, persisted DailyActivityStats)` |
+| Session count | Completed sessions whose `endedAt` falls on that calendar day |
+
+Helpers: `loadDayExecutionSummary()`, `loadMergedFocusSecondsForWeek()`. Used by `todayPerformanceProvider`, `computeYesterdaySummary()`, `WeeklyReviewService` timeline, and Daily Brief weekly momentum chart.
 
 ### Deep Work Engine
 
@@ -484,10 +514,10 @@ Compact **2×3 grid** (Stitch redesign). Each tile: icon + ALL-CAPS label, large
 
 **Day task set** (`tasksForPerformanceDay` in `task_filter_utils.dart`):
 
-- **Total:** tasks with `today == true` **OR** completed today (`status == done` and `updatedAt` on today's calendar date)  
-- **Completed count:** all tasks completed today (even if removed from today queue)
+- **Total:** tasks with `today == true` **OR** completed today (`taskCompletedOnDay`)  
+- **Completed count:** all tasks whose `completedAt` (or `updatedAt` fallback) falls on today's calendar date
 
-This keeps `2/3` correct after marking tasks done (they leave the list but still count for the day).
+Yesterday trend baselines use the same day-execution rules via `loadDayExecutionSummary()`.
 
 ---
 
@@ -805,7 +835,22 @@ Pipeline stepper, documents checklist, fit notes, linked tasks. **Lead quality**
 
 ### Daily Brief — `/daily-brief`
 
-Morning gate screen opened from the header rocket icon. Shows yesterday recap, absence detection, streak context, and routes into today's execution. Separate from the on-Today **Executive Brief** AI card (Groq).
+Morning gate screen (Stitch redesign). Rendered on `rootNavigatorKey` — **no bottom nav**. Separate from the on-Today **Executive Brief** AI card (Groq).
+
+**State resolution** (`DailyBriefStateService`):
+
+| State | When | Primary CTA |
+|-------|------|-------------|
+| `dailyBrief` | Default — today queue has tasks, no interrupted session | Footer **ENTER EXECUTION MODE** → Today (`/`) |
+| `resumeSession` | Active `focus_sessions` row with `endedAt IS NULL` | **RESUME SESSION** or discard → Today |
+| `emptyDay` | No tasks in today queue | **PLAN MY DAY** + suggested actions → Today |
+| `returningAfterAbsence` | `lastOpenedAt` > 48h ago | **RE-ENGAGE** (recovery route) + **ENTER FULL SYSTEM** → Today |
+
+**Yesterday summary:** tasks completed, deep work hours, session count — from `computeYesterdaySummary()` using merged focus stats + `taskCompletedOnDay`.
+
+**Exit flow:** `dismissBriefSync()` → persist → `router.go('/')`. Review mode (`?review=true`) uses `pop()` back to Today.
+
+**Widgets:** `widgets/daily_brief/` (`daily_brief_default_view`, `resume_view`, `welcome_back_view`, `empty_day_view`, `daily_brief_shared`, `daily_brief_chrome`).
 
 ### Calendar — `/calendar`
 
@@ -1017,7 +1062,10 @@ Executive Brief + AI client: `feature/ai-executive-brief`
 | `services/insight_generator.dart` | Weekly insights |
 | `services/system_reflection_generator.dart` | Structured reflection bullets |
 | `services/weekly_narrative_generator.dart` | Template narrative (export / persistence) |
-| `services/daily_brief_state_service.dart` | Daily Brief gate + morning flow |
+| `services/daily_brief_state_service.dart` | Daily Brief state resolution (4 views) |
+| `services/daily_brief_metrics.dart` | Yesterday summary, absence status, buffer tasks |
+| `services/day_execution_stats.dart` | Canonical per-day tasks/focus/session totals |
+| `services/daily_brief_prefs.dart` | Gate notifier (`dismissBriefSync`, `shouldShowToday`) |
 | `services/task_completion_service.dart` | Centralized mark-done + planning accuracy |
 | `services/planning_accuracy_service.dart` | Accuracy analytics computation |
 | `services/calendar_service.dart` | Google Calendar HTTP client |
@@ -1042,12 +1090,23 @@ Executive Brief + AI client: `feature/ai-executive-brief`
 
 | File | Role |
 |------|------|
-| `utils/task_filter_utils.dart` | Filters, `taskCompletedToday`, `tasksForPerformanceDay` |
+| `utils/task_filter_utils.dart` | Filters, `taskCompletedOnDay`, `taskCompletionInstant`, `tasksForPerformanceDay` |
 | `utils/deep_work_utils.dart` | Goal constants, planning accuracy |
 | `utils/review_stats_utils.dart` | Week boundaries, ISO week labels, `startedRateForTasks` |
 | `models/performance_metric_trend.dart` | Snapshot trend labels and direction |
 | `models/reflection_bullet.dart` | Rich-text segments for system reflection |
 
+### Daily Brief widgets
+
+| File | Role |
+|------|------|
+| `daily_brief_chrome.dart` | Top chrome (clock, no search/profile on gate) |
+| `daily_brief_default_view.dart` | Default morning state |
+| `daily_brief_resume_view.dart` | Interrupted session recovery |
+| `daily_brief_welcome_back_view.dart` | Absence / welcome-back state |
+| `daily_brief_empty_day_view.dart` | Empty today queue |
+| `daily_brief_shared.dart` | Yesterday strip, CTAs, shared cards |
+
 ---
 
-*Last updated: Performance Snapshot compact tiles + day-over-day trends; Executive Brief Stitch layout + `ExecutiveBriefContextService`; Review debrief redesign (execution score ring, 2×2 metrics, system reflection bullets); profile week completed count; Review PDF/CSV export live.*
+*Last updated: Schema v11 `completedAt`; day execution stats canonical layer; Daily Brief 4-state gate + exit navigation fix; Performance Snapshot / yesterday metrics aligned on completion day.*

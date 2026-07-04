@@ -26,8 +26,17 @@ class ReviewMetricsGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: AppSpacing.md,
       mainAxisSpacing: AppSpacing.md,
-      childAspectRatio: 2.1,
+      childAspectRatio: 1.95,
       children: [
+        _MetricTile(
+          label: 'COMPLETION RATE',
+          value: '${(metrics.taskCompletionRate * 100).round()}%',
+          trailing: Icon(
+            Icons.check_circle_outline,
+            size: 16,
+            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+          ),
+        ),
         _MetricTile(
           label: 'STARTED RATE',
           value: '$startedRate%',
