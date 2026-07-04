@@ -16,6 +16,13 @@ class ProjectRepository {
         );
   }
 
+  Future<List<Project>> getAll() async {
+    final rows = await (_db.select(_db.projects)
+          ..orderBy([(project) => OrderingTerm.desc(project.updatedAt)]))
+        .get();
+    return rows.map(Project.fromRow).toList();
+  }
+
   Future<Project?> getById(int id) async {
     final query = _db.select(_db.projects)
       ..where((project) => project.id.equals(id));

@@ -9,7 +9,7 @@ import 'package:ciaraos/providers/focus_session_repository_provider.dart';
 import 'package:ciaraos/providers/profile_providers.dart';
 import 'package:ciaraos/providers/project_providers.dart';
 import 'package:ciaraos/providers/task_providers.dart';
-import 'package:ciaraos/providers/weekly_debrief_providers.dart';
+import 'package:ciaraos/providers/weekly_review_providers.dart';
 import 'package:ciaraos/services/daily_brief_metrics.dart';
 import 'package:ciaraos/services/project_next_action_service.dart';
 import 'package:ciaraos/services/daily_brief_state_service.dart';
@@ -19,6 +19,7 @@ import 'package:ciaraos/theme/app_theme.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/deep_work_utils.dart';
 import 'package:ciaraos/utils/focus_duration_utils.dart';
+import 'package:ciaraos/utils/review_stats_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,6 +36,7 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
   DailyBriefState? _briefState;
   bool _isNavigating = false;
   bool _isResolving = true;
+  bool _resolveFailed = false;
   Timer? _clockTimer;
   String _clockLabel = _formatClock(DateTime.now());
 
@@ -68,56 +70,71 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
   }
 
   Future<void> _resolveBriefState() async {
-    final todayTasks = await ref.read(todayTasksProvider.future);
-    final allTasks = await ref.read(allTasksProvider.future);
-    final projects = await ref.read(allProjectsProvider.future);
-    final weekReview = await ref.read(currentWeekReviewProvider.future);
+    try {
+      final taskRepo = ref.read(taskRepositoryProvider);
+      final projectRepo = ref.read(projectRepositoryProvider);
+      final focusRepo = ref.read(focusSessionRepositoryProvider);
+      final weekReviewRepo = ref.read(weeklyReviewRepositoryProvider);
 
-    final activeSession =
-        await ref.read(focusSessionRepositoryProvider).getActiveSession();
-    final hasInterruptedSession = activeSession != null;
+      final todayTasks = await taskRepo.getToday();
+      final allTasks = await taskRepo.getAll();
+      final projects = await projectRepo.getAll();
+      final weekReview =
+          await weekReviewRepo.getByWeek(mondayOfWeek(DateTime.now()));
+      final activeSession = await focusRepo.getActiveSession();
+      final hasInterruptedSession = activeSession != null;
 
-    final lastOpenedAt = ref.read(dailyBriefGateProvider).readLastOpenedAt();
+      final lastOpenedAt = ref.read(dailyBriefGateProvider).readLastOpenedAt();
 
-    final briefState = DailyBriefStateService().compute(
-      todayTasks: todayTasks,
-      hasInterruptedSession: hasInterruptedSession,
-      lastOpenedAt: lastOpenedAt,
-    );
-
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final sessions = await ref
-        .read(focusSessionRepositoryProvider)
-        .getCompletedSessionsForDay(yesterday);
-
-    Task? interruptedTask;
-    if (activeSession != null) {
-      interruptedTask =
-          await ref.read(taskRepositoryProvider).getById(activeSession.taskId);
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _briefState = briefState;
-      _isResolving = false;
-      _yesterday = computeYesterdaySummary(
-        allTasks: allTasks,
-        sessions: sessions,
+      final briefState = DailyBriefStateService().compute(
+        todayTasks: todayTasks,
+        hasInterruptedSession: hasInterruptedSession,
+        lastOpenedAt: lastOpenedAt,
       );
-      _absenceStatus = computeAbsenceStatus(
-        allTasks: allTasks,
-        projects: projects,
-        weekReview: weekReview,
-      );
-      _topTask = topPriorityTask(todayTasks);
-      _activeProject = topActiveProject(projects);
-      _interruptedTask = interruptedTask;
-      _interruptedElapsedSeconds = activeSession?.liveElapsedSeconds ?? 0;
-      _allTasks = allTasks;
-    });
+
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final sessions =
+          await focusRepo.getCompletedSessionsForDay(yesterday);
+
+      Task? interruptedTask;
+      if (activeSession != null) {
+        interruptedTask = await taskRepo.getById(activeSession.taskId);
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _briefState = briefState;
+        _isResolving = false;
+        _resolveFailed = false;
+        _yesterday = computeYesterdaySummary(
+          allTasks: allTasks,
+          sessions: sessions,
+        );
+        _absenceStatus = computeAbsenceStatus(
+          allTasks: allTasks,
+          projects: projects,
+          weekReview: weekReview,
+        );
+        _topTask = topPriorityTask(todayTasks);
+        _activeProject = topActiveProject(projects);
+        _interruptedTask = interruptedTask;
+        _interruptedElapsedSeconds = activeSession?.liveElapsedSeconds ?? 0;
+        _allTasks = allTasks;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('Daily brief failed to load: $error\n$stackTrace');
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isResolving = false;
+        _resolveFailed = true;
+        _briefState = DailyBriefState.dailyBrief;
+      });
+    }
   }
 
   String _greetingName() {
@@ -234,7 +251,9 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
                         child: Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 640),
-                            child: _buildBody(colorScheme),
+                            child: _resolveFailed
+                                ? _buildResolveError(colorScheme)
+                                : _buildBody(colorScheme),
                           ),
                         ),
                       ),
@@ -249,7 +268,9 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
                       child: Center(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 640),
-                          child: _buildActions(colorScheme),
+                          child: _resolveFailed
+                              ? _buildResolveErrorActions(colorScheme)
+                              : _buildActions(colorScheme),
                         ),
                       ),
                     ),
@@ -257,6 +278,53 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
                 ),
         ),
       ),
+    );
+  }
+
+  Widget _buildResolveError(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Could not load your brief',
+          style: AppTypography.headingLarge.copyWith(
+            color: colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          'Local data could not be read. You can retry or return to Today.',
+          style: AppTypography.bodyLarge.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResolveErrorActions(ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FilledButton(
+          onPressed: _isNavigating
+              ? null
+              : () {
+                  setState(() {
+                    _isResolving = true;
+                    _resolveFailed = false;
+                    _briefState = null;
+                  });
+                  _resolveBriefState();
+                },
+          child: const Text('Retry'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        OutlinedButton(
+          onPressed: _isNavigating ? null : () => context.go('/'),
+          child: const Text('Go to Today'),
+        ),
+      ],
     );
   }
 

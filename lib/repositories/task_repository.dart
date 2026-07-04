@@ -16,6 +16,13 @@ class TaskRepository {
         );
   }
 
+  Future<List<Task>> getAll() async {
+    final rows = await (_db.select(_db.tasks)
+          ..orderBy([(task) => OrderingTerm.desc(task.updatedAt)]))
+        .get();
+    return rows.map(Task.fromRow).toList();
+  }
+
   Stream<List<Task>> watchToday() {
     final query = _db.select(_db.tasks)
       ..where(
@@ -26,6 +33,17 @@ class TaskRepository {
     return query.watch().map(
           (rows) => rows.map(Task.fromRow).toList(),
         );
+  }
+
+  Future<List<Task>> getToday() async {
+    final rows = await (_db.select(_db.tasks)
+          ..where(
+            (task) =>
+                task.today.equals(true) & task.status.isNotValue('done'),
+          )
+          ..orderBy([(task) => OrderingTerm.desc(task.updatedAt)]))
+        .get();
+    return rows.map(Task.fromRow).toList();
   }
 
   Future<Task?> getById(int id) async {
