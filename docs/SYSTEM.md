@@ -135,6 +135,8 @@ flowchart TD
 | Review | `/review` | Weekly Executive Debrief |
 | Profile | `/profile` | Identity, stats, tagline |
 | Settings | `/settings` | Theme, data, onboarding reset |
+| Calendar | `/calendar` | Google Calendar schedule + focus blocks |
+| Daily Brief | `/daily-brief` | Morning gate: yesterday recap + today's plan |
 | **Skills** | `/skills/*` | GitHub, security practice, certifications |
 | **Analytics** | `/analytics/*` | Trends, domain breakdown, planning accuracy |
 | **Knowledge** | `/knowledge/*` | Notes and saved resources |
@@ -148,7 +150,7 @@ flowchart TD
 lib/
 ├── main.dart                      # App entry, onboarding bootstrap, theme
 ├── router/app_router.dart         # GoRouter routes + onboarding redirect
-├── database/                      # Drift schema (v8), migrations
+├── database/                      # Drift schema (v10), migrations
 ├── models/                        # Domain types, enums, ExecutiveBrief
 ├── repositories/                  # CRUD + queries (tasks, projects, …)
 ├── providers/                     # Riverpod wiring (incl. ai_providers)
@@ -187,7 +189,7 @@ lib/
 
 | Store | Contents |
 |-------|----------|
-| **Drift (SQLite)** | Tasks, projects, opportunities, focus sessions, weekly reviews, certifications, notes, resources |
+| **Drift (SQLite)** | Tasks, projects, opportunities, focus sessions, weekly reviews, certifications, notes, resources, security manual logs |
 | **SharedPreferences** | Onboarding, daily focus seconds, streak, theme, profile tagline, notification toggle |
 
 ---
@@ -202,11 +204,11 @@ Ciara OS spans two repos on disk:
 └── ciara_os_backend/      # FastAPI AI backend (sibling, optional)
     ├── main.py
     ├── requirements.txt
-    ├── .env.example       # GROQ_API_KEY, GITHUB_TOKEN, HTB/H1 keys
+    ├── .env.example       # GROQ, GitHub, HTB/H1, Notion, Google OAuth keys
     └── .env               # gitignored — never commit
 ```
 
-The Flutter app runs fully offline for core execution. The optional backend powers the **Executive Brief**, **GitHub Activity**, and **Security Practice** API syncs.
+The Flutter app runs fully offline for core execution. The optional backend powers the **Executive Brief**, **GitHub Activity**, **Security Practice** API syncs, **Notion** note import, and **Google Calendar** OAuth.
 
 ---
 
@@ -235,8 +237,11 @@ On first shell mount, if an interrupted `focus_sessions` row exists (`endedAt IS
 | Route | Screen |
 |-------|--------|
 | `/onboarding` | `OnboardingScreen` |
+| `/daily-brief` | `DailyBriefScreen` |
+| `/calendar` | `CalendarScreen` |
 | `/profile` | `ProfileScreen` |
 | `/settings` | `SettingsScreen` |
+| `/tasks/completed` | `CompletedTasksScreen` |
 | `/tasks/new` | `TaskCreateEditScreen` (create) |
 | `/tasks/:id` | `TaskDetailScreen` |
 | `/tasks/:id/edit` | `TaskCreateEditScreen` (edit) |
@@ -270,15 +275,24 @@ Opened from the hamburger drawer; use `SidebarScreenScaffold` + `TodayHeader`.
 
 - `/tasks/new?projectId=…&title=…` — pre-fill project link and title
 
-**Header chrome:** `TodayHeader` on primary screens — settings icon → `/settings`, avatar → `/profile`.
+**Header chrome:** `TodayHeader` on primary and sidebar screens:
+
+| Control | Position | Action |
+|---------|----------|--------|
+| Profile avatar | Left (replaces hamburger) | Opens navigation drawer |
+| Terminal + **Ciara OS** | Left | Brand label |
+| Calendar | Right (first) | `/calendar` if Google authorized; otherwise calendar setup sheet |
+| Daily Brief | Right (second) | `/daily-brief` morning gate screen |
+
+Drawer is opened from the **left avatar** only (not a separate menu icon). Profile is reachable from the drawer header avatar or `/profile`.
 
 ---
 
 ## Data model
 
-**Schema version:** 8
+**Schema version:** 10
 
-Additional tables (v7–v8): `certifications`, `notes`, `resources`.
+Additional tables (v7–v10): `certifications`, `notes`, `resources`, `security_manual_logs`.
 
 ### Tasks
 
@@ -350,7 +364,7 @@ Each row is one deep work session bound to exactly one task. Only one row may ha
 | `documents` | text? | JSON checklist items |
 | `documentsTotal` / `documentsReady` | int | Checklist progress |
 | `link` | text? | Application URL or email |
-| `leadQuality` | int? | 1–3 rating |
+| `leadQuality` | int? | 1–3 rating (editable on create and detail) |
 | `createdAt` / `updatedAt` | DateTime | |
 
 ### Weekly reviews
@@ -367,6 +381,35 @@ Each row is one deep work session bound to exactly one task. Only one row may ha
 | `locked` | bool | Finalized debrief |
 | `createdAt` / `updatedAt` | DateTime | |
 
+### Notes (`notes`)
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | int | PK |
+| `title` / `content` | text | Note body |
+| `domain` | text | `Domain` enum name |
+| `wordCount` | int | Derived count |
+| `notionPageId` / `notionUrl` / `notionLastEdited` | text/DateTime? | Notion sync metadata (v9) |
+| `isNotionSynced` | bool | Imported from Notion |
+| `createdAt` / `updatedAt` | DateTime | |
+
+### Security manual logs (`security_manual_logs`, v10)
+
+Locally persisted HTB/HackerOne practice you log manually. Survives backend restarts (backend `/api/security/log` is in-memory only).
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | int | PK |
+| `platform` | text | `htb` or `h1` |
+| `activityType` | text | `machine`, `challenge`, or `report` |
+| `name` | text | Machine/challenge/report title |
+| `difficulty` | text? | Easy–Insane (HTB) or severity hint (H1) |
+| `activityDate` | DateTime | When the activity occurred |
+| `notes` | text? | Optional notes |
+| `loggedAt` | DateTime | When saved locally |
+
+Merged into Security Practice recent-activity sections alongside API-synced data.
+
 ### Migrations
 
 | Version | Change |
@@ -376,6 +419,10 @@ Each row is one deep work session bound to exactly one task. Only one row may ha
 | v4 | `projects.timeAllocationDays` |
 | v5 | `focus_sessions` table; task deep work columns |
 | v6 | Weekly review debrief fields |
+| v7 | `certifications` table |
+| v8 | `notes`, `resources` tables |
+| v9 | Notion sync columns on `notes` |
+| v10 | `security_manual_logs` table |
 
 ---
 
@@ -412,7 +459,7 @@ Ciara OS tracks **execution quality**, not just elapsed time.
 - Checkpoint every 15s to SQLite for crash recovery
 - App launch → recovery dialog if orphaned session exists
 
-**Planning accuracy** (`computePlanningAccuracy`): on complete, compares estimate vs actual focused time → 0–100 score.
+**Planning accuracy** (`computePlanningAccuracy`): on complete, compares estimate vs actual focused time → 0–100 score. Persisted via `TaskCompletionService.markTaskDone()` from task detail, backlog quick actions, and backlog list — not only from the detail screen. Qualifying tasks need an estimate, `totalFocusedSeconds > 0`, and a computed score.
 
 ### Performance Snapshot (Today)
 
@@ -495,13 +542,24 @@ ciara_os_backend/
 |--------|------|-------------|
 | GET | `/health` | `{"status": "ok"}` |
 | POST | `/api/brief` | Executive Brief from JSON context |
-| GET | `/api/github/activity` | GitHub profile, week commits, streak, languages |
+| GET | `/api/github/activity` | GitHub profile, week commits, streak, languages (25s client timeout) |
 | GET | `/api/github/repos/{name}` | Single repo detail |
 | GET | `/api/security/hackthebox` | HTB profile and activity (requires `HTB_API_KEY`) |
 | GET | `/api/security/hackerone` | HackerOne profile (requires `H1_USERNAME`, `H1_API_TOKEN`) |
-| POST/GET | `/api/security/log` | Manual security practice log |
+| POST/GET | `/api/security/log` | Manual security practice log (in-memory on backend; app persists locally in SQLite) |
+| GET | `/health/notion` | Notion integration health |
+| GET | `/api/notion/pages` | List Notion pages available to sync |
+| POST | `/api/notion/pages/{page_id}/sync` | Pull a Notion page into local notes |
+| GET | `/auth/google` | Google OAuth authorization URL |
+| GET | `/auth/google/callback` | OAuth callback (stores tokens in `.tokens.json`) |
+| GET | `/auth/google/status` | `{ authorized, email }` — email resolved via userinfo or primary calendar fallback |
+| DELETE | `/auth/google/disconnect` | Revoke local Google tokens |
+| GET | `/api/calendar/events` | Google Calendar events for date range |
+| POST | `/api/calendar/focus-block` | Create a focus block event |
+| DELETE | `/api/calendar/events/{event_id}` | Delete a calendar event |
+| GET | `/api/calendar/free-slots` | Free slots for focus scheduling |
 
-**Environment:** `GROQ_API_KEY`, `GITHUB_TOKEN`, `HTB_API_KEY`, `H1_USERNAME`, `H1_API_TOKEN` in `.env`. Restart uvicorn after changing `.env` (reload does not refresh env).
+**Environment:** `GROQ_API_KEY`, `GITHUB_TOKEN`, `HTB_API_KEY`, `H1_USERNAME`, `H1_API_TOKEN`, `NOTION_TOKEN`, `NOTION_DATABASE_ID`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `GOOGLE_CALENDAR_ID` in `.env`. Restart uvicorn after changing `.env` (reload does not refresh env).
 
 **Run:**
 
@@ -544,10 +602,10 @@ Review generators remain deterministic and swappable; the Brief is the first liv
 
 ### `TodayHeader`
 
-- Height 56px; terminal icon + **Ciara OS** (JetBrains Mono)  
-- Settings → `/settings`  
-- Avatar **CM** → `/profile`  
-- Notifications icon — non-functional placeholder  
+- Height 56px; **profile avatar** (left) opens drawer; terminal icon + **Ciara OS** (JetBrains Mono)  
+- **Calendar** (right) → `/calendar` or setup sheet if Google not authorized  
+- **Daily Brief** (right) → `/daily-brief`  
+- No hamburger icon — drawer is opened from the left avatar  
 
 ### `EmptyState`
 
@@ -580,6 +638,7 @@ TodayHeader
 └─ ScrollView (max-width 1200)
    ├─ TodayScreenLabel       "EXECUTION VIEW" / Today / date
    ├─ TodayActionRow         Filter + New Task
+   ├─ CalendarStrip          Week strip + today's events (Google Calendar)
    ├─ ExecutiveBriefCard     AI morning brief (optional)
    ├─ "TODAY'S FOCUS PLAN"   section label
    └─ [wide ≥1024px] 8/4 | [narrow] stacked
@@ -688,29 +747,37 @@ Title, domain, priority, status (edit), estimate, deadline, project, today flag,
 
 ### Project & Opportunity detail / forms
 
-As documented in prior sections — pipeline stepper, documents checklist, fit notes, lead quality, linked tasks.
+Pipeline stepper, documents checklist, fit notes, linked tasks. **Lead quality** (1–3 stars) on both create/edit forms and detail metadata. Application link validation (URL or email).
+
+### Daily Brief — `/daily-brief`
+
+Morning gate screen opened from the header rocket icon. Shows yesterday recap, absence detection, streak context, and routes into today's execution. Separate from the on-Today **Executive Brief** AI card (Groq).
+
+### Calendar — `/calendar`
+
+Full schedule view (Stitch redesign): week strip, Type A/B event cards, upcoming section. Google OAuth via backend; focus blocks created through `FocusBlockSchedulerSheet`. Header calendar icon opens this route when authorized.
 
 ### Sidebar — Skills
 
 | Screen | Data source | Notes |
 |--------|-------------|-------|
 | GitHub Activity | Backend → GitHub API | Token auth, 2hr cache, manual sync |
-| Security Practice | Backend → HTB + HackerOne | Three-state empty UI; manual log fallback |
+| Security Practice | Backend → HTB + HackerOne | Three-state empty UI; manual logs persisted in SQLite (`security_manual_logs`) and merged into activity lists |
 | Certifications | Local SQLite | CRUD with bottom sheet |
 
 ### Sidebar — Analytics
 
 | Screen | Threshold | Data source |
 |--------|-----------|-------------|
-| Productivity Trends | 4 weekly reviews | `allWeeklyReviewsProvider` + task focus history |
+| Productivity Trends | 4 weekly reviews | `allWeeklyReviewsProvider` + task focus history; locked sections show **N / 4 reviews** progress |
 | Domain Breakdown | None | Tasks by domain and period |
-| Planning Accuracy | 5 tasks with estimates | `allTasksProvider` (`planningAccuracy != null`) |
+| Planning Accuracy | 5 qualifying task completions | Done tasks with estimate + focus time + `planningAccuracy` (via `markTaskDone`) |
 
 ### Sidebar — Knowledge
 
 | Screen | Storage |
 |--------|---------|
-| Notes | SQLite `notes` — list, FAB, editor |
+| Notes | SQLite `notes` — list, FAB, editor; optional Notion import via backend |
 | Resources | SQLite `resources` — bookmarks and links |
 
 ---
@@ -760,7 +827,17 @@ flutter run
 # Linux desktop or Chrome web
 ```
 
-After schema migration bump: **full restart** (not hot reload).
+After schema migration bump: **full restart** (not hot reload). Regenerate Drift after table changes:
+
+```bash
+dart run build_runner build
+```
+
+**App icon** (after changing `assets/icon/`):
+
+```bash
+dart run flutter_launcher_icons
+```
 
 **With AI backend:**
 
@@ -803,9 +880,12 @@ Executive Brief + AI client: `feature/ai-executive-brief`
 | Notifications | Toggle saved; no delivery |
 | Cloud sync / auth | Not planned for v1 |
 | Executive Brief | **Live** — requires local backend + Groq key |
-| GitHub / Security APIs | **Live** — requires backend + API keys |
-| Productivity Trends | **Live** — unlocks after 4 weekly reviews |
-| Planning Accuracy | **Live** — unlocks after 5 estimated task completions |
+| GitHub / Security APIs | **Live** — requires backend + API keys; GitHub HTTP timeout 25s |
+| Google Calendar / Notion | **Live** — requires backend OAuth/API keys |
+| Productivity Trends | **Live** — unlocks after 4 weekly reviews (`N / 4 reviews` progress UI) |
+| Planning Accuracy | **Live** — unlocks after 5 qualifying task completions |
+| Security manual logs | **Live** — local SQLite persistence (v10) |
+| App launcher icon | **Live** — `flutter_launcher_icons` from `assets/icon/` |
 | More AI endpoints | Backend flat structure ready to extend |
 | `Productivity Index` | Removed; replaced by Performance Snapshot |
 
@@ -825,12 +905,16 @@ Executive Brief + AI client: `feature/ai-executive-brief`
 | `screens/analytics/productivity_trends_screen.dart` | `/analytics/trends` |
 | `screens/analytics/domain_breakdown_screen.dart` | `/analytics/domains` |
 | `screens/analytics/planning_accuracy_screen.dart` | `/analytics/accuracy` |
+| `screens/analytics/completed_tasks_screen.dart` | `/tasks/completed` |
 | `screens/skills/github_activity_screen.dart` | `/skills/github` |
 | `screens/skills/security_practice_screen.dart` | `/skills/ctf` |
 | `screens/skills/certifications_screen.dart` | `/skills/certifications` |
 | `screens/knowledge/notes_screen.dart` | `/knowledge/notes` |
+| `screens/knowledge/note_editor_screen.dart` | `/knowledge/notes/new`, `/knowledge/notes/:id` |
 | `screens/knowledge/resources_screen.dart` | `/knowledge/resources` |
 | `screens/secondary/onboarding_screen.dart` | `/onboarding` |
+| `screens/secondary/daily_brief_screen.dart` | `/daily-brief` |
+| `screens/skills/calendar_screen.dart` | `/calendar` |
 | `screens/secondary/profile_screen.dart` | `/profile` |
 | `screens/secondary/settings_screen.dart` | `/settings` |
 | `screens/secondary/task_detail_screen.dart` | `/tasks/:id` |
@@ -850,6 +934,8 @@ Executive Brief + AI client: `feature/ai-executive-brief`
 | `deep_work_card.dart` | Active session (via `widgets/deep_work/`) |
 | `builder_mode_card.dart` | Builder-domain today tasks |
 | `today_action_row.dart` | Filter + New Task |
+| `calendar_strip.dart` | Today week strip + event preview |
+| `today_header.dart` | App chrome: avatar (drawer), calendar, daily brief |
 | `today_filter_sheet.dart` | Today-specific filters |
 
 ### AI & services
@@ -863,6 +949,13 @@ Executive Brief + AI client: `feature/ai-executive-brief`
 | `services/execution_timeline_generator.dart` | Daily quality bars |
 | `services/insight_generator.dart` | Weekly insights |
 | `services/weekly_narrative_generator.dart` | Template narrative |
+| `services/daily_brief_state_service.dart` | Daily Brief gate + morning flow |
+| `services/task_completion_service.dart` | Centralized mark-done + planning accuracy |
+| `services/planning_accuracy_service.dart` | Accuracy analytics computation |
+| `services/calendar_service.dart` | Google Calendar HTTP client |
+| `services/notion_api_client.dart` | Notion health + page list |
+| `services/notion_sync_service.dart` | Notion → local notes import |
+| `repositories/security_manual_log_repository.dart` | Manual HTB/H1 log persistence |
 | `services/daily_activity_stats.dart` | Focus seconds + streak |
 | `services/data_management_service.dart` | Delete all local data |
 | `providers/ai_providers.dart` | `executiveBriefProvider` |
@@ -888,4 +981,4 @@ Executive Brief + AI client: `feature/ai-executive-brief`
 
 ---
 
-*Last updated: schema v8, sidebar screens (skills/analytics/knowledge), backend GitHub+security APIs, three-state empty UI, Review header week/date line.*
+*Last updated: schema v10, header avatar/calendar/daily-brief layout, Google Calendar + Notion integrations, local security manual logs, planning accuracy via markTaskDone, lead quality on opportunity create, productivity trends N/4 reviews progress.*

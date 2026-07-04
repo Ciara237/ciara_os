@@ -6,6 +6,7 @@ import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/router/app_router.dart';
 import 'package:ciaraos/services/notification_service.dart';
 import 'package:ciaraos/services/settings_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,28 +15,33 @@ final notificationServiceProvider = Provider<NotificationService>(
 );
 
 Future<void> initializeNotificationService(WidgetRef ref) async {
-  final service = ref.read(notificationServiceProvider);
-  await service.initialize(
-    onNotificationTap: (payload, channelId) async {
-      if (channelId == 'deep_work' || isDeepWorkNotificationPayload(payload)) {
-        final repo = ref.read(focusSessionRepositoryProvider);
-        final today = DateTime.now();
-        final completed =
-            await repo.getCompletedSessionsForDay(today);
-        final active = await repo.getActiveSession();
-        if (completed.isNotEmpty || active != null) {
-          return;
+  try {
+    final service = ref.read(notificationServiceProvider);
+    await service.initialize(
+      onNotificationTap: (payload, channelId) async {
+        if (channelId == 'deep_work' || isDeepWorkNotificationPayload(payload)) {
+          final repo = ref.read(focusSessionRepositoryProvider);
+          final today = DateTime.now();
+          final completed =
+              await repo.getCompletedSessionsForDay(today);
+          final active = await repo.getActiveSession();
+          if (completed.isNotEmpty || active != null) {
+            return;
+          }
         }
-      }
 
-      final route = notificationRouteFromPayload(payload);
-      if (route != null) {
-        ref.read(routerProvider).go(route);
-      }
-    },
-  );
+        final route = notificationRouteFromPayload(payload);
+        if (route != null) {
+          ref.read(routerProvider).go(route);
+        }
+      },
+    );
 
-  await restoreNotificationsFromPreferences(ref);
+    await restoreNotificationsFromPreferences(ref);
+  } catch (error, stackTrace) {
+    debugPrint('NotificationService init skipped: $error');
+    debugPrint('$stackTrace');
+  }
 }
 
 Future<bool> notificationsMasterEnabled() async {

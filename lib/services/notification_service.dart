@@ -1,4 +1,5 @@
 import 'package:ciaraos/services/settings_preferences.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +10,12 @@ typedef NotificationTapCallback = void Function(
   String? payload,
   String? channelId,
 );
+
+bool _supportsZonedSchedule() {
+  return defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+}
 
 class NotificationService {
   NotificationService({FlutterLocalNotificationsPlugin? plugin})
@@ -35,9 +42,13 @@ class NotificationService {
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings();
+    const linuxSettings = LinuxInitializationSettings(
+      defaultActionName: 'Open',
+    );
     const initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
+      linux: linuxSettings,
     );
 
     await _plugin.initialize(
@@ -67,6 +78,10 @@ class NotificationService {
     required DateTime deadline,
   }) async {
     await cancelDeadlineReminders(id, type: type);
+
+    if (!_supportsZonedSchedule()) {
+      return;
+    }
 
     const reminders = <({int days, String label})>[
       (days: 3, label: 'due in 3 days'),
@@ -108,6 +123,9 @@ class NotificationService {
   }
 
   Future<void> scheduleDailyBrief(TimeOfDay time) async {
+    if (!_supportsZonedSchedule()) {
+      return;
+    }
     await _plugin.cancel(dailyBriefId);
 
     await _plugin.zonedSchedule(
@@ -140,6 +158,9 @@ class NotificationService {
   }
 
   Future<void> scheduleDeepWorkNudge(TimeOfDay nudgeTime) async {
+    if (!_supportsZonedSchedule()) {
+      return;
+    }
     await _plugin.cancel(deepWorkNudgeId);
 
     await _plugin.zonedSchedule(
@@ -295,6 +316,9 @@ class NotificationService {
     required String channelId,
     String? payload,
   }) async {
+    if (!_supportsZonedSchedule()) {
+      return;
+    }
     final importance = channelId == 'deadlines'
         ? Importance.high
         : Importance.defaultImportance;

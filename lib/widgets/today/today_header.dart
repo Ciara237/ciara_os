@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-const _headerGroupGap = 12.0;
 const _headerActionSize = 40.0;
 
 class TodayHeader extends ConsumerWidget {
@@ -33,72 +32,72 @@ class TodayHeader extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Row(
         children: [
-          SizedBox(
-            width: _headerActionSize,
-            child: IconButton(
-              onPressed: () => Scaffold.of(context).openDrawer(),
-              icon: Icon(
-                Icons.menu,
-                color: colorScheme.onSurfaceVariant,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: _headerActionSize,
+                child: UserAvatarButton(
+                  size: _headerActionSize,
+                  onTap: () => handleAvatarNavigation(context),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'CiaraOS',
+                style: AppTypography.headingMedium.copyWith(
+                  color: colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          Expanded(
+            child: Center(
+              child: Icon(
+                Icons.terminal,
+                color: colorScheme.primary,
                 size: 24,
               ),
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              constraints: const BoxConstraints(
-                minWidth: _headerActionSize,
-                minHeight: _headerActionSize,
+            ),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: () {
+                  if (authorized) {
+                    context.push('/calendar');
+                  } else {
+                    showCalendarSetupSheet(context, ref);
+                  }
+                },
+                icon: Icon(
+                  Icons.calendar_month,
+                  color: colorScheme.onSurfaceVariant,
+                  size: 24,
+                ),
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                constraints: const BoxConstraints(
+                  minWidth: _headerActionSize,
+                  minHeight: _headerActionSize,
+                ),
+                tooltip: 'Calendar',
               ),
-              tooltip: 'Menu',
-            ),
-          ),
-          Icon(Icons.terminal, color: colorScheme.primary, size: 24),
-          const SizedBox(width: _headerGroupGap),
-          Text(
-            'Ciara OS',
-            style: AppTypography.headingMedium.copyWith(
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: () => context.push('/daily-brief'),
-            icon: Icon(
-              Icons.rocket_launch,
-              color: colorScheme.onSurfaceVariant,
-              size: 24,
-            ),
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            constraints: const BoxConstraints(
-              minWidth: _headerActionSize,
-              minHeight: _headerActionSize,
-            ),
-            tooltip: 'Daily Brief',
-          ),
-          IconButton(
-            onPressed: () {
-              if (authorized) {
-                context.push('/calendar');
-              } else {
-                showCalendarSetupSheet(context, ref);
-              }
-            },
-            icon: Icon(
-              Icons.calendar_month,
-              color: colorScheme.onSurfaceVariant,
-              size: 24,
-            ),
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            constraints: const BoxConstraints(
-              minWidth: _headerActionSize,
-              minHeight: _headerActionSize,
-            ),
-            tooltip: 'Calendar',
-          ),
-          SizedBox(
-            width: _headerActionSize,
-            child: UserAvatarButton(
-              size: _headerActionSize,
-              onTap: () => handleAvatarNavigation(context),
-            ),
+              IconButton(
+                onPressed: () => context.push('/daily-brief'),
+                icon: Icon(
+                  Icons.rocket_launch,
+                  color: colorScheme.onSurfaceVariant,
+                  size: 24,
+                ),
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                constraints: const BoxConstraints(
+                  minWidth: _headerActionSize,
+                  minHeight: _headerActionSize,
+                ),
+                tooltip: 'Daily Brief',
+              ),
+            ],
           ),
         ],
       ),

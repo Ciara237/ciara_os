@@ -345,129 +345,139 @@ class _DomainDetailCard extends StatelessWidget {
     final focusHours = stats.totalFocusedSeconds / 3600;
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border(
-          left: BorderSide(color: domainColor, width: 3),
-          top: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-          ),
-          right: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-          ),
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.2),
-          ),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(domainIcon(stats.domain), color: domainColor, size: 20),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                domainLabel(stats.domain),
-                style: AppTypography.labelLarge.copyWith(
-                  color: domainColor,
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ColoredBox(color: domainColor, child: const SizedBox(width: 3)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          domainIcon(stats.domain),
+                          color: domainColor,
+                          size: 20,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          domainLabel(stats.domain),
+                          style: AppTypography.labelLarge.copyWith(
+                            color: domainColor,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '${stats.totalTasks} tasks',
+                          style: AppTypography.labelSmall.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          focusHours.toStringAsFixed(1),
+                          style: AppTypography.displayLarge.copyWith(
+                            color: colorScheme.onSurface,
+                            fontSize: 32,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            'Focus hours',
+                            style: AppTypography.labelSmall.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    _StatRow(
+                      label: 'Completed',
+                      value: '${stats.completedTasks}',
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusFull),
+                      child: LinearProgressIndicator(
+                        value: stats.completionRate.clamp(0, 1),
+                        minHeight: 4,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        color: domainColor,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _StatRow(
+                      label: 'In progress',
+                      value: '${stats.inProgressTasks}',
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    _StatRow(
+                      label: 'Stuck',
+                      value: '${stats.stuckTasks}',
+                      valueColor:
+                          stats.stuckTasks > 0 ? const Color(0xFFF87171) : null,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    const Divider(height: 1),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'STARTED RATE',
+                          style: AppTypography.labelSmall.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 10,
+                          ),
+                        ),
+                        Text(
+                          '${(stats.startedRate * 100).round()}%',
+                          style: AppTypography.labelSmall.copyWith(
+                            color: colorScheme.primary,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      stats.mostPostponedTaskTitle == null
+                          ? 'Most postponed: None'
+                          : 'Most postponed: "${stats.mostPostponedTaskTitle}" (${stats.mostPostponedCount}×)',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontStyle: FontStyle.italic,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              Text(
-                '${stats.totalTasks} tasks',
-                style: AppTypography.labelSmall.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                focusHours.toStringAsFixed(1),
-                style: AppTypography.displayLarge.copyWith(
-                  color: colorScheme.onSurface,
-                  fontSize: 32,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  'Focus hours',
-                  style: AppTypography.labelSmall.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _StatRow(
-            label: 'Completed',
-            value: '${stats.completedTasks}',
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-            child: LinearProgressIndicator(
-              value: stats.completionRate,
-              minHeight: 4,
-              backgroundColor: colorScheme.surfaceContainerHighest,
-              color: domainColor,
             ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _StatRow(
-            label: 'In progress',
-            value: '${stats.inProgressTasks}',
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _StatRow(
-            label: 'Stuck',
-            value: '${stats.stuckTasks}',
-            valueColor: stats.stuckTasks > 0 ? const Color(0xFFF87171) : null,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          const Divider(height: 1),
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'STARTED RATE',
-                style: AppTypography.labelSmall.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontSize: 10,
-                ),
-              ),
-              Text(
-                '${(stats.startedRate * 100).round()}%',
-                style: AppTypography.labelSmall.copyWith(
-                  color: colorScheme.primary,
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            stats.mostPostponedTaskTitle == null
-                ? 'Most postponed: None'
-                : 'Most postponed: "${stats.mostPostponedTaskTitle}" (${stats.mostPostponedCount}×)',
-            style: AppTypography.bodyMedium.copyWith(
-              color: colorScheme.onSurfaceVariant,
-              fontStyle: FontStyle.italic,
-              fontSize: 11,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

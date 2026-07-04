@@ -72,7 +72,7 @@ class _SnapshotGrid extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           crossAxisSpacing: AppSpacing.md,
           mainAxisSpacing: AppSpacing.md,
-          childAspectRatio: 1.6,
+          childAspectRatio: 1.45,
           children: [
             _Tile(
               icon: Icons.task_alt,
@@ -154,7 +154,7 @@ class _Tile extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -169,17 +169,22 @@ class _Tile extends StatelessWidget {
                   label.toUpperCase(),
                   style: AppTypography.labelSmall.copyWith(
                     color: colorScheme.onSurfaceVariant,
+                    fontSize: 10,
                   ),
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             value,
             style: AppTypography.headingMedium.copyWith(
               color: colorScheme.onSurface,
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ],
       ),
