@@ -47,6 +47,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final location = state.matchedLocation;
       final onOnboarding = location == '/onboarding';
       final onDailyBrief = location == '/daily-brief';
+      final isReviewingBrief =
+          state.uri.queryParameters['review'] == 'true';
 
       if (!onboarding.isComplete && !onOnboarding) {
         return '/onboarding';
@@ -59,7 +61,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         if (dailyBriefGate.shouldShowToday() && !onDailyBrief) {
           return '/daily-brief';
         }
-        if (!dailyBriefGate.shouldShowToday() && onDailyBrief) {
+        if (!dailyBriefGate.shouldShowToday() &&
+            onDailyBrief &&
+            !isReviewingBrief) {
           return '/';
         }
       }

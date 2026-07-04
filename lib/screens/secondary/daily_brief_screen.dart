@@ -4,12 +4,14 @@ import 'package:ciaraos/models/project.dart';
 import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/providers/daily_brief_gate_provider.dart';
 import 'package:ciaraos/providers/focus_session_provider.dart';
+import 'package:ciaraos/providers/session_recovery_provider.dart';
 import 'package:ciaraos/providers/focus_session_repository_provider.dart';
 import 'package:ciaraos/providers/profile_providers.dart';
 import 'package:ciaraos/providers/project_providers.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/providers/weekly_debrief_providers.dart';
 import 'package:ciaraos/services/daily_brief_metrics.dart';
+import 'package:ciaraos/services/project_next_action_service.dart';
 import 'package:ciaraos/services/daily_brief_state_service.dart';
 import 'package:ciaraos/theme/app_colors.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
@@ -42,6 +44,7 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
   Project? _activeProject;
   Task? _interruptedTask;
   int _interruptedElapsedSeconds = 0;
+  List<Task> _allTasks = const [];
 
   @override
   void initState() {
@@ -65,9 +68,9 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
   }
 
   Future<void> _resolveBriefState() async {
-    final todayTasks = ref.read(todayTasksProvider).value ?? const <Task>[];
-    final allTasks = ref.read(allTasksProvider).value ?? const <Task>[];
-    final projects = ref.read(allProjectsProvider).value ?? const <Project>[];
+    final todayTasks = await ref.read(todayTasksProvider.future);
+    final allTasks = await ref.read(allTasksProvider.future);
+    final projects = await ref.read(allProjectsProvider.future);
     final weekReview = await ref.read(currentWeekReviewProvider.future);
 
     final activeSession =
@@ -113,6 +116,7 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
       _activeProject = topActiveProject(projects);
       _interruptedTask = interruptedTask;
       _interruptedElapsedSeconds = activeSession?.liveElapsedSeconds ?? 0;
+      _allTasks = allTasks;
     });
   }
 
@@ -150,7 +154,17 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
     if (lastOpened == null) {
       return 0;
     }
-    return DateTime.now().difference(lastOpened).inDays;
+    final hours = DateTime.now().difference(lastOpened).inHours;
+    if (hours < 48) {
+      return 0;
+    }
+    return (hours / 24).ceil();
+  }
+
+  Future<void> _resumeInterruptedSession() async {
+    ref.read(sessionRecoveryHandledProvider.notifier).state = true;
+    await ref.read(focusSessionProvider.notifier).recoverSession();
+    await _completeBrief();
   }
 
   Future<void> _completeBrief({bool discardSession = false}) async {
@@ -173,6 +187,24 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
     }
 
     context.go('/');
+  }
+
+  Future<void> _completeBriefAndGo(String location) async {
+    if (_isNavigating) {
+      return;
+    }
+
+    setState(() => _isNavigating = true);
+
+    final gate = ref.read(dailyBriefGateProvider);
+    await gate.markShownToday();
+    await gate.markOpenedNow();
+
+    if (!mounted) {
+      return;
+    }
+
+    context.go(location);
   }
 
   @override
@@ -407,14 +439,17 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
               _SuggestionRow(
                 icon: Icons.list_alt_outlined,
                 label: 'Plan Your Day (Backlog)',
+                onTap: () => _completeBriefAndGo('/tasks'),
               ),
               _SuggestionRow(
                 icon: Icons.architecture_outlined,
                 label: 'Continue a Project (Projects)',
+                onTap: () => _completeBriefAndGo('/projects'),
               ),
               _SuggestionRow(
                 icon: Icons.account_tree_outlined,
                 label: 'Review Pipeline (Pipeline)',
+                onTap: () => _completeBriefAndGo('/opportunities'),
               ),
             ],
           ),
@@ -440,9 +475,11 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
       recommendationTitle = 'Weekly review pending';
       recommendationBody = 'Complete your weekly review.';
     } else if (status.topActiveProject != null) {
-      recommendationTitle = status.topActiveProject!.name;
+      final project = status.topActiveProject!;
+      recommendationTitle =
+          displayNextAction(project, _allTasks) ?? project.name;
       recommendationBody =
-          status.topActiveProject!.nextAction ?? 'Continue active project work.';
+          'Continue active project work.';
     } else {
       recommendationTitle = 'Re-engage with your system';
       recommendationBody = 'Pick one priority and start.';
@@ -578,6 +615,9 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
 
   Widget _buildProjectContext(ColorScheme colorScheme) {
     final project = _activeProject;
+    final nextActionLabel = project == null
+        ? null
+        : displayNextAction(project, _allTasks);
 
     return _BriefCard(
       child: Column(
@@ -636,7 +676,8 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              project.nextAction ?? 'Define the next action for this project.',
+              nextActionLabel ??
+                  'Define the next action for this project.',
               style: AppTypography.bodyLarge.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -685,7 +726,7 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           FilledButton(
-            onPressed: _isNavigating ? null : () => _completeBrief(),
+            onPressed: _isNavigating ? null : _resumeInterruptedSession,
             child: const Text('Resume Session →'),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -791,30 +832,44 @@ class _BriefCard extends StatelessWidget {
 }
 
 class _SuggestionRow extends StatelessWidget {
-  const _SuggestionRow({required this.icon, required this.label});
+  const _SuggestionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Text(
-              label,
-              style: AppTypography.bodyLarge.copyWith(
-                color: colorScheme.onSurfaceVariant,
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: colorScheme.onSurfaceVariant),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                label,
+                style: AppTypography.bodyLarge.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-          ),
-        ],
+            Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -84,7 +84,7 @@ class TodayHeader extends ConsumerWidget {
                 tooltip: 'Calendar',
               ),
               IconButton(
-                onPressed: () => context.push('/daily-brief'),
+                onPressed: () => context.push('/daily-brief?review=true'),
                 icon: Icon(
                   Icons.rocket_launch,
                   color: colorScheme.onSurfaceVariant,

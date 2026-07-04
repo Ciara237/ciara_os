@@ -10,6 +10,7 @@ import 'package:ciaraos/theme/app_theme.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
 import 'package:ciaraos/utils/opportunity_utils.dart';
+import 'package:ciaraos/services/project_next_action_service.dart';
 import 'package:ciaraos/utils/project_utils.dart';
 import 'package:ciaraos/widgets/navigation/minimal_back_header.dart';
 import 'package:flutter/material.dart';
@@ -92,12 +93,10 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
   }
 
   Future<void> _saveNextAction(Project project) async {
-    final text = _nextActionController.text.trim();
-    await _persistProject(
-      project.copyWith(
-        nextAction: text.isEmpty ? null : text,
-        clearNextAction: text.isEmpty,
-      ),
+    await saveProjectNextActionWithTask(
+      ref,
+      project,
+      _nextActionController.text,
     );
     if (mounted) {
       setState(() => _isEditingNextAction = false);
@@ -206,24 +205,26 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   );
                 }
 
+                final linkedTasks = tasksAsync.maybeWhen(
+                  data: (tasks) =>
+                      projectBacklogTasks(tasks, project.id),
+                  orElse: () => <Task>[],
+                );
+                final resolvedNextAction = tasksAsync.maybeWhen(
+                  data: (tasks) => displayNextAction(project, tasks),
+                  orElse: () => project.nextAction,
+                );
+
                 if (!_isEditingNextAction &&
                     _nextActionController.text.isEmpty &&
-                    project.nextAction != null) {
-                  _nextActionController.text = project.nextAction!;
+                    resolvedNextAction != null) {
+                  _nextActionController.text = resolvedNextAction;
                 }
                 if (!_isEditingDescription &&
                     _descriptionController.text.isEmpty &&
                     project.description != null) {
                   _descriptionController.text = project.description!;
                 }
-
-                final linkedTasks = tasksAsync.maybeWhen(
-                  data: (tasks) => tasks
-                      .where((task) => task.projectId == project.id)
-                      .toList()
-                    ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)),
-                  orElse: () => <Task>[],
-                );
 
                 final showDescriptionCard =
                     project.description != null || _isEditingDescription;
@@ -246,7 +247,7 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                     const SizedBox(height: AppSpacing.lg),
                     ProjectNextActionCard(
                       isEditing: _isEditingNextAction,
-                      nextAction: project.nextAction,
+                      nextAction: resolvedNextAction,
                       controller: _nextActionController,
                       onEdit: () => setState(() => _isEditingNextAction = true),
                       onSave: () => _saveNextAction(project),

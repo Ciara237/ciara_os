@@ -23,6 +23,7 @@ import 'package:ciaraos/widgets/navigation/primary_drawer.dart';
 import 'package:ciaraos/widgets/calendar/calendar_setup_sheet.dart';
 import 'package:ciaraos/widgets/notion/notion_setup_sheet.dart';
 import 'package:ciaraos/widgets/today/today_header.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -635,6 +636,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           value: formatNotificationTimeDisplay(_dailyBriefTime),
                           enabled: _notificationsMaster,
                           onTap: _pickDailyBriefTime,
+                          subtitle: defaultTargetPlatform == TargetPlatform.linux
+                              ? 'Scheduled reminders require Android, iOS, or macOS'
+                              : null,
                         ),
                         const SizedBox(height: AppSpacing.md),
                         _SettingsTimeRow(

@@ -2,6 +2,7 @@ import 'package:ciaraos/models/enums/task_status.dart';
 import 'package:ciaraos/models/task.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/repositories/task_repository.dart';
+import 'package:ciaraos/services/project_next_action_service.dart';
 import 'package:ciaraos/utils/deep_work_utils.dart';
 import 'package:ciaraos/utils/planning_accuracy_utils.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ Future<Task?> markTaskDone(WidgetRef ref, Task task) async {
   final done = latest.markedDone();
   await repository.update(done.toCompanion());
   await persistPlanningAccuracyForTask(repository, task.id);
+  await syncProjectNextActionAfterTaskComplete(ref, latest);
   ref.invalidate(taskByIdProvider(task.id));
   return repository.getById(task.id);
 }

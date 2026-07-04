@@ -1,4 +1,5 @@
 import 'package:ciaraos/providers/focus_session_provider.dart';
+import 'package:ciaraos/providers/session_recovery_provider.dart';
 import 'package:ciaraos/providers/focus_session_repository_provider.dart';
 import 'package:ciaraos/providers/navigation_provider.dart';
 import 'package:ciaraos/providers/task_providers.dart';
@@ -52,6 +53,11 @@ class _PrimaryShellScaffoldState extends ConsumerState<PrimaryShellScaffold> {
       return;
     }
     _recoveryChecked = true;
+
+    if (ref.read(sessionRecoveryHandledProvider)) {
+      ref.read(sessionRecoveryHandledProvider.notifier).state = false;
+      return;
+    }
 
     final session =
         await ref.read(focusSessionRepositoryProvider).getActiveSession();

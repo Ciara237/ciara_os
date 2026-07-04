@@ -147,7 +147,7 @@ class NotificationService {
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
-      payload: '/daily-brief',
+      payload: '/daily-brief?review=true',
     );
     await _trackScheduledId(dailyBriefId);
   }

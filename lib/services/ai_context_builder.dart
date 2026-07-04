@@ -76,7 +76,7 @@ class AiContextBuilder {
             : weekActive.where((task) => task.started).length /
                 weekActive.length,
         'tasks_completed': weekCompleted,
-        'tasks_total': weekActive.length,
+        'tasks_total': weekTasks.length,
         'total_focused_hours': totalFocusSeconds / 3600.0,
       },
       'active_projects': activeProjects.toList(),

@@ -1,5 +1,7 @@
 import 'package:ciaraos/models/enums/project_status.dart';
 import 'package:ciaraos/models/project.dart';
+import 'package:ciaraos/models/task.dart';
+import 'package:ciaraos/services/project_next_action_service.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_theme.dart';
 import 'package:ciaraos/theme/app_typography.dart';
@@ -20,10 +22,12 @@ class ProjectCard extends StatelessWidget {
   const ProjectCard({
     super.key,
     required this.project,
+    this.linkedTasks = const [],
     this.onTap,
   });
 
   final Project project;
+  final List<Task> linkedTasks;
   final VoidCallback? onTap;
 
   static Color _statusDotColor(ProjectStatus status) {
@@ -56,7 +60,8 @@ class ProjectCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final domainColor = context.domainColor(project.domain);
-    final hasNextAction = project.nextAction != null;
+    final nextActionLabel = displayNextAction(project, linkedTasks);
+    final hasNextAction = nextActionLabel != null;
 
     return Material(
       color: Colors.transparent,
@@ -165,7 +170,7 @@ class ProjectCard extends StatelessWidget {
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        project.nextAction ?? 'No next action set.',
+                        nextActionLabel ?? 'No next action set.',
                         style: AppTypography.bodyMedium.copyWith(
                           color: hasNextAction
                               ? colorScheme.onSurface

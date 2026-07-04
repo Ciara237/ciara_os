@@ -1,4 +1,5 @@
 import 'package:ciaraos/providers/project_providers.dart';
+import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/widgets/common/empty_state.dart';
@@ -20,6 +21,7 @@ class ProjectsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final projectsAsync = ref.watch(allProjectsProvider);
+    final tasksAsync = ref.watch(allTasksProvider);
 
     return ColoredBox(
       color: colorScheme.surface,
@@ -56,6 +58,7 @@ class ProjectsScreen extends ConsumerWidget {
                     onAction: () => ref.invalidate(allProjectsProvider),
                   ),
                   data: (projects) {
+                    final allTasks = tasksAsync.value ?? const [];
                     if (projects.isEmpty) {
                       return EmptyState(
                         style: EmptyStateStyle.projects,
@@ -75,6 +78,7 @@ class ProjectsScreen extends ConsumerWidget {
                           if (i > 0) const SizedBox(height: AppSpacing.md),
                           ProjectCard(
                             project: projects[i],
+                            linkedTasks: allTasks,
                             onTap: () =>
                                 context.push('/projects/${projects[i].id}'),
                           ),
