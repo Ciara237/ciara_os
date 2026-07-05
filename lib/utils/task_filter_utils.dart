@@ -166,3 +166,40 @@ void clearAllFilters(WidgetRef ref) {
   ref.read(deadlineFilterProvider.notifier).state = null;
   ref.read(statusFilterProvider.notifier).state = null;
 }
+
+/// Filter completed tasks by time period.
+List<Task> filterCompletedByPeriod({
+  required List<Task> tasks,
+  required String period,
+  DateTime? customStart,
+  DateTime? customEnd,
+}) {
+  final completed = tasks.where((t) => t.status == TaskStatus.done).toList();
+
+  final now = DateTime.now();
+
+  switch (period) {
+    case 'week':
+      final monday = DateTime(now.year, now.month, now.day - (now.weekday - 1));
+      return completed.where((t) {
+        final date = t.completedAt ?? t.updatedAt;
+        return date.isAfter(monday);
+      }).toList();
+    case 'month':
+      final monthStart = DateTime(now.year, now.month, 1);
+      return completed.where((t) {
+        final date = t.completedAt ?? t.updatedAt;
+        return date.isAfter(monthStart);
+      }).toList();
+    case 'custom':
+      if (customStart == null) return completed;
+      return completed.where((t) {
+        final date = t.completedAt ?? t.updatedAt;
+        return date.isAfter(customStart) &&
+            (customEnd == null ||
+                date.isBefore(customEnd.add(const Duration(days: 1))));
+      }).toList();
+    default: // 'all'
+      return completed;
+  }
+}

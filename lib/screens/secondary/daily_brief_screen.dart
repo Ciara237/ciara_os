@@ -11,7 +11,6 @@ import 'package:ciaraos/providers/profile_providers.dart';
 import 'package:ciaraos/providers/project_providers.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/providers/weekly_review_providers.dart';
-import 'package:ciaraos/router/app_router.dart';
 import 'package:ciaraos/services/day_execution_stats.dart';
 import 'package:ciaraos/services/daily_activity_stats.dart';
 import 'package:ciaraos/services/daily_brief_metrics.dart';
@@ -79,14 +78,6 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
   static String _formatClock(DateTime time) {
     return DateFormat('HH:mm').format(time);
   }
-
-  bool get _isReviewRoute {
-    final routerState = GoRouterState.of(context);
-    return routerState.matchedLocation == '/daily-brief' &&
-        routerState.uri.queryParameters['review'] == 'true';
-  }
-
-  bool get _isMandatoryOverlay => !_isReviewRoute;
 
   Future<void> _resolveBriefState() async {
     try {
@@ -234,11 +225,7 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
     );
   }
 
-  Future<void> _exitBrief({
-    String destination = '/',
-    bool discardSession = false,
-    bool markBriefComplete = true,
-  }) async {
+  Future<void> _exitBrief({bool discardSession = false}) async {
     if (_isNavigating) {
       return;
     }
@@ -246,7 +233,6 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
     setState(() => _isNavigating = true);
 
     final gate = ref.read(dailyBriefGateProvider);
-    final router = ref.read(routerProvider);
 
     try {
       if (discardSession) {
@@ -257,51 +243,38 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
         return;
       }
 
-      if (_isReviewRoute && context.canPop()) {
-        context.pop();
-        return;
-      }
-
-      if (markBriefComplete) {
-        gate.dismissBriefSync();
-        await gate.markShownToday();
-      }
+      // Save daily brief shown date
+      gate.dismissBriefSync();
+      await gate.markShownToday();
       await gate.markOpenedNow();
 
       if (!mounted) {
         return;
       }
 
-      // Mandatory overlay: dismissing the gate removes this screen — no route hop.
-      if (_isMandatoryOverlay && destination == '/') {
-        return;
-      }
-
-      router.go(destination);
+      // Navigate to Today screen
+      context.go('/');
     } catch (error, stackTrace) {
       debugPrint('Daily brief exit failed: $error\n$stackTrace');
       if (mounted) {
         setState(() => _isNavigating = false);
+        context.go('/');
       }
     }
-  }
-
-  Future<void> _enterToday({bool discardSession = false}) {
-    return _exitBrief(discardSession: discardSession);
   }
 
   Future<void> _reEngageFromWelcomeBack() {
     final status = _absenceStatus;
     if (status == null) {
-      return _enterToday();
+      return _exitBrief();
     }
-    return _exitBrief(destination: reEngageDestination(status));
+    return _exitBrief();
   }
 
   Future<void> _resumeInterruptedSession() async {
     ref.read(sessionRecoveryHandledProvider.notifier).state = true;
     await ref.read(focusSessionProvider.notifier).recoverSession();
-    await _enterToday();
+    await _exitBrief();
   }
 
   bool get _useExpandedChrome {
@@ -431,7 +404,7 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         OutlinedButton(
-          onPressed: _isNavigating ? null : () => _enterToday(),
+          onPressed: _isNavigating ? null : () => _exitBrief(),
           child: const Text('Enter Today'),
         ),
       ],
@@ -452,7 +425,7 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
           activeProject: _activeProject,
           allTasks: _allTasks,
           yesterday: yesterday,
-          onEnterToday: _isNavigating ? null : () => _enterToday(),
+          onEnterToday: _isNavigating ? null : () => _exitBrief(),
         ),
       DailyBriefState.resumeSession => DailyBriefResumeView(
           greeting: _timeAwareGreeting(),
@@ -467,14 +440,14 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
           onResume: _isNavigating ? null : _resumeInterruptedSession,
           onDiscard: _isNavigating
               ? null
-              : () => _enterToday(discardSession: true),
+              : () => _exitBrief(discardSession: true),
           isBusy: _isNavigating,
         ),
       DailyBriefState.emptyDay => DailyBriefEmptyDayView(
           greeting: _timeAwareGreeting(),
           weeklyFocusSeconds: _weeklyFocusSeconds,
           isBusy: _isNavigating,
-          onEnterToday: _isNavigating ? null : () => _enterToday(),
+          onEnterToday: _isNavigating ? null : () => _exitBrief(),
         ),
       DailyBriefState.returningAfterAbsence => DailyBriefWelcomeBackView(
           name: _greetingName(),
@@ -486,7 +459,7 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
           incompleteCount: countIncompleteHighPriority(_allTasks),
           onReEngage:
               _isNavigating ? null : () => _reEngageFromWelcomeBack(),
-          onEnterFullSystem: _isNavigating ? null : () => _enterToday(),
+          onEnterFullSystem: _isNavigating ? null : () => _exitBrief(),
           isBusy: _isNavigating,
         ),
     };
@@ -497,7 +470,7 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
       bindings: {
         const SingleActivator(LogicalKeyboardKey.enter): () {
           if (!_isNavigating) {
-            _enterToday();
+            _exitBrief();
           }
         },
       },
@@ -507,7 +480,7 @@ class _DailyBriefScreenState extends ConsumerState<DailyBriefScreen> {
           label: 'ENTER EXECUTION MODE',
           enabled: !_isNavigating,
           showEnterHint: true,
-          onPressed: _isNavigating ? null : () => _enterToday(),
+          onPressed: _isNavigating ? null : () => _exitBrief(),
         ),
       ),
     );

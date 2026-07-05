@@ -8,6 +8,7 @@ import 'package:ciaraos/theme/app_typography.dart';
 import 'package:ciaraos/utils/domain_icons.dart';
 import 'package:ciaraos/widgets/completed_tasks/completed_task_card.dart';
 import 'package:ciaraos/widgets/completed_tasks/weekly_distribution_chart.dart';
+import 'package:ciaraos/widgets/common/execution_archive_export_sheet.dart';
 import 'package:ciaraos/widgets/navigation/minimal_back_header.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -28,7 +29,16 @@ class CompletedTasksScreen extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const MinimalBackHeader(),
+          MinimalBackHeader(
+            action: IconButton(
+              tooltip: 'Export',
+              onPressed: () => showExecutionArchiveExportSheet(context, ref),
+              icon: Icon(
+                Icons.download,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
           Expanded(
             child: dataAsync.when(
               loading: () =>

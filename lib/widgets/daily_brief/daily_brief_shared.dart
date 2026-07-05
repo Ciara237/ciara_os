@@ -234,10 +234,12 @@ class _CompactStatRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: AppTypography.bodyMedium.copyWith(
-            color: colorScheme.onSurface,
+        Expanded(
+          child: Text(
+            label,
+            style: AppTypography.bodyMedium.copyWith(
+              color: colorScheme.onSurface,
+            ),
           ),
         ),
         Text(

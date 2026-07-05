@@ -41,6 +41,41 @@ class CsvExportService {
     );
   }
 
+  Future<void> exportCompletedTasks({
+    required List<Task> tasks,
+    required String periodLabel,
+  }) async {
+    final buffer = StringBuffer();
+    buffer.writeln(
+      'Title,Domain,Priority,Status,CompletedAt,EstimatedMin,FocusedMin,PlanningAccuracy,PostponeCount',
+    );
+
+    final dateFormat = DateFormat('yyyy-MM-dd');
+    for (final task in tasks) {
+      final completedDate = task.completedAt ?? task.updatedAt;
+      buffer.writeln([
+        _escape(task.title),
+        domainLabel(task.domain),
+        task.priority.name.toUpperCase(),
+        task.status.name,
+        dateFormat.format(completedDate),
+        task.estimatedDurationMinutes?.toString() ?? '',
+        (task.totalFocusedSeconds / 60).round().toString(),
+        task.planningAccuracy == null
+            ? ''
+            : '${(task.planningAccuracy! * 100).round()}%',
+        task.postponeCount.toString(),
+      ].join(','));
+    }
+
+    final filename =
+        'ciara_os_execution_archive_${_sanitizeFilename(periodLabel)}.csv';
+    await deliverExportFile(
+      bytes: Uint8List.fromList(utf8.encode(buffer.toString())),
+      filename: filename,
+    );
+  }
+
   String _escape(String value) {
     if (value.contains(',') || value.contains('"') || value.contains('\n')) {
       return '"${value.replaceAll('"', '""')}"';

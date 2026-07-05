@@ -48,6 +48,7 @@ class WeeklyDebriefPdfTemplate {
     return pw.Page(
       pageTheme: PdfTokens.pageTheme(_palette),
       build: (context) => pw.Column(
+        mainAxisSize: pw.MainAxisSize.min,
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           _header(review.weekOf),
@@ -99,6 +100,7 @@ class WeeklyDebriefPdfTemplate {
       build: (context) {
         if (tasks.isEmpty) {
           return pw.Column(
+            mainAxisSize: pw.MainAxisSize.min,
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               _header(weekOf),
@@ -119,6 +121,7 @@ class WeeklyDebriefPdfTemplate {
         final domains = Domain.values.where(grouped.containsKey).toList();
 
         return pw.Column(
+          mainAxisSize: pw.MainAxisSize.min,
           crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
             _header(weekOf),
@@ -149,6 +152,7 @@ class WeeklyDebriefPdfTemplate {
     return pw.Page(
       pageTheme: PdfTokens.pageTheme(_palette),
       build: (context) => pw.Column(
+        mainAxisSize: pw.MainAxisSize.min,
         crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           _header(review.weekOf),

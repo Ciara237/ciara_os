@@ -5,7 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-// TODO: embed Inter + JetBrains Mono TTF files in Phase 2 for brand-accurate PDF typography
+/// Font container for PDF export.
+class PdfFonts {
+  final pw.Font body;
+  final pw.Font bodyBold;
+  final pw.Font bodyMedium;
+  final pw.Font mono;
+  final pw.Font monoBold;
+  const PdfFonts({
+    required this.body,
+    required this.bodyBold,
+    required this.bodyMedium,
+    required this.mono,
+    required this.monoBold,
+  });
+}
 
 /// Resolved PDF colors for light or dark export.
 final class PdfThemePalette {
@@ -82,11 +96,6 @@ final class PdfThemePalette {
 
 /// Shared PDF typography and palette tokens (Stitch weekly debrief + task export).
 abstract final class PdfTokens {
-  static final bodyFont = pw.Font.helvetica();
-  static final monoFont = pw.Font.courier();
-  static final bodyBold = pw.Font.helveticaBold();
-  static final monoBold = pw.Font.courierBold();
-
   // Semantic accents (Stitch domain + status colors)
   static const green = PdfColor.fromInt(0xFF10B981);
   static const red = PdfColor.fromInt(0xFFEF4444);
@@ -102,17 +111,6 @@ abstract final class PdfTokens {
     Domain.builder: purple,
     Domain.other: slate,
   };
-
-  /// Built-in PDF fonts (Helvetica/Courier) are Latin-1 only.
-  static String sanitize(String text) {
-    return text
-        .replaceAll('\u2014', '-')
-        .replaceAll('\u2013', '-')
-        .replaceAll('\u2022', '*')
-        .replaceAll('\u00B7', ' | ')
-        .replaceAll('\u25A1', '[]')
-        .replaceAll('\u25B8', '>');
-  }
 
   static PdfColor domainColor(Domain domain) =>
       domainAccent[domain] ?? slate;
@@ -153,11 +151,34 @@ abstract final class PdfTokens {
     };
   }
 
+  /// Sanitizes Unicode characters that built-in fonts can't render.
+  /// With embedded TTF fonts, this is now a no-op but kept for safety.
+  static String sanitize(String text) {
+    return text
+        .replaceAll('\u2014', '-')
+        .replaceAll('\u2013', '-')
+        .replaceAll('\u2022', '*')
+        .replaceAll('\u00B7', ' | ')
+        .replaceAll('\u25A1', '[]')
+        .replaceAll('\u25B8', '>');
+  }
+
+  /// Font accessors - use loaded TTF fonts for Unicode support.
+  /// These are set before each PDF export.
+  static pw.Font? bodyFont;
+  static pw.Font? bodyBold;
+  static pw.Font? monoFont;
+  static pw.Font? monoBold;
+
+  /// Creates a page theme with embedded TTF fonts for Unicode support.
   static pw.PageTheme pageTheme(PdfThemePalette palette) {
     return pw.PageTheme(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.all(56),
-      theme: pw.ThemeData.withFont(base: bodyFont, bold: bodyBold),
+      theme: pw.ThemeData.withFont(
+        base: bodyFont,
+        bold: bodyBold,
+      ),
       buildBackground: (context) => pw.FullPage(
         ignoreMargins: true,
         child: pw.Container(color: palette.bg),

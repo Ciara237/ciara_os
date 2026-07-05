@@ -1,14 +1,9 @@
-import 'package:ciaraos/models/task.dart';
-import 'package:ciaraos/providers/csv_export_provider.dart';
-import 'package:ciaraos/providers/pdf_export_provider.dart';
 import 'package:ciaraos/providers/task_providers.dart';
 import 'package:ciaraos/theme/app_spacing.dart';
 import 'package:ciaraos/theme/app_typography.dart';
-import 'package:ciaraos/widgets/export/pdf_export_sheets.dart';
 import 'package:ciaraos/widgets/tasks/task_filter_sheets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 class TasksFilterBar extends ConsumerWidget {
   const TasksFilterBar({super.key});
@@ -43,67 +38,9 @@ class TasksFilterBar extends ConsumerWidget {
             isActive: status != null,
             onTap: () => showStatusFilterSheet(context, ref),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          IconButton(
-            tooltip: 'Export tasks',
-            onPressed: () => _showTasksExportSheet(context, ref),
-            icon: Icon(
-              Icons.picture_as_pdf_outlined,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
         ],
       ),
     );
-  }
-
-  void _showTasksExportSheet(BuildContext context, WidgetRef ref) {
-    showTasksExportSheet(
-      context: context,
-      onExportPdf: () => _exportTasksPdf(context, ref),
-      onExportCsv: () => _exportTasksCsv(context, ref),
-    );
-  }
-
-  Future<void> _exportTasksPdf(BuildContext context, WidgetRef ref) async {
-    final brightness = Theme.of(context).brightness;
-
-    try {
-      final tasks =
-          ref.read(filteredTasksProvider).asData?.value ?? const <Task>[];
-      final periodLabel = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      await ref.read(pdfExportServiceProvider).exportTasksBacklog(
-            tasks: tasks,
-            periodLabel: periodLabel,
-            brightness: brightness,
-          );
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $error')),
-        );
-      }
-      rethrow;
-    }
-  }
-
-  Future<void> _exportTasksCsv(BuildContext context, WidgetRef ref) async {
-    try {
-      final tasks =
-          ref.read(filteredTasksProvider).asData?.value ?? const <Task>[];
-      final periodLabel = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      await ref.read(csvExportServiceProvider).exportTasks(
-            tasks: tasks,
-            periodLabel: periodLabel,
-          );
-    } catch (error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $error')),
-        );
-      }
-      rethrow;
-    }
   }
 }
 

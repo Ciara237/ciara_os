@@ -158,7 +158,6 @@ class DailyBriefDefaultView extends StatelessWidget {
                   if (activeProject != null && onEnterToday != null)
                     IconButton(
                       onPressed: onEnterToday,
-                      tooltip: 'Enter full system',
                       icon: Icon(
                         Icons.open_in_new,
                         size: 20,

@@ -3,17 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 /// Compact header with a single back control — no drawer avatar or app chrome.
-class MinimalBackHeader extends StatelessWidget {
-  const MinimalBackHeader({super.key, this.onBack});
+class MinimalBackHeader extends StatelessWidget implements PreferredSizeWidget {
+  const MinimalBackHeader({super.key, this.onBack, this.action});
 
   final VoidCallback? onBack;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      height: AppSpacing.appBarHeight,
+      height: appBarHeight,
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border(
@@ -23,14 +24,22 @@ class MinimalBackHeader extends StatelessWidget {
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: IconButton(
-          onPressed: onBack ?? () => context.pop(),
-          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          tooltip: 'Back',
-        ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            onPressed: onBack ?? () => context.pop(),
+            icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
+            tooltip: 'Back',
+          ),
+          if (action != null) action!,
+        ],
       ),
     );
   }
+
+  static const double appBarHeight = 56.0;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(appBarHeight);
 }
